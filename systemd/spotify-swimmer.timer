@@ -1,0 +1,10 @@
+# systemd/spotify-swimmer.timer
+[Unit]
+Description=Run Spotify Swimmer daily at 3am
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
