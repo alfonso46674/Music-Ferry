@@ -25,6 +25,9 @@ dev = [
 [project.scripts]
 spotify-swimmer = "spotify_swimmer.cli:main"
 
+[tool.setuptools.packages.find]
+include = ["spotify_swimmer*"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
