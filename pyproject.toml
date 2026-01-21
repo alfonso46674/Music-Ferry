@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spotify-swimmer"
+version = "0.1.0"
+description = "Download Spotify playlists to MP3 for offline swimming"
+requires-python = ">=3.11"
+dependencies = [
+    "playwright>=1.40.0",
+    "spotipy>=2.23.0",
+    "ffmpeg-python>=0.2.0",
+    "mutagen>=1.47.0",
+    "pyyaml>=6.0",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.scripts]
+spotify-swimmer = "spotify_swimmer.cli:main"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
