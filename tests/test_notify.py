@@ -1,0 +1,116 @@
+# tests/test_notify.py
+from unittest.mock import patch, MagicMock
+
+import pytest
+
+from spotify_swimmer.notify import Notifier, SyncResult, PlaylistResult
+
+
+class TestNotifier:
+    def test_sync_result_total_tracks(self):
+        result = SyncResult(
+            playlists=[
+                PlaylistResult(name="Playlist 1", tracks_synced=5, error=None),
+                PlaylistResult(name="Playlist 2", tracks_synced=3, error=None),
+            ],
+            transferred=True,
+        )
+        assert result.total_tracks == 8
+        assert result.has_errors is False
+        assert result.is_success is True
+
+    def test_sync_result_with_errors(self):
+        result = SyncResult(
+            playlists=[
+                PlaylistResult(name="Playlist 1", tracks_synced=5, error=None),
+                PlaylistResult(name="Playlist 2", tracks_synced=0, error="Not found"),
+            ],
+            transferred=True,
+        )
+        assert result.total_tracks == 5
+        assert result.has_errors is True
+        assert result.is_success is False
+
+    def test_sync_result_all_failed(self):
+        result = SyncResult(
+            playlists=[
+                PlaylistResult(name="Playlist 1", tracks_synced=0, error="Login expired"),
+            ],
+            transferred=False,
+            global_error="Login expired",
+        )
+        assert result.is_failure is True
+
+    @patch("spotify_swimmer.notify.requests.post")
+    def test_send_success_notification(self, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+
+        notifier = Notifier(
+            ntfy_server="https://ntfy.sh",
+            ntfy_topic="test-topic",
+            notify_on_success=True,
+            notify_on_failure=True,
+        )
+
+        result = SyncResult(
+            playlists=[
+                PlaylistResult(name="Discover Weekly", tracks_synced=8, error=None),
+                PlaylistResult(name="Workout Mix", tracks_synced=4, error=None),
+            ],
+            transferred=True,
+        )
+
+        notifier.send(result)
+
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+        assert "ntfy.sh/test-topic" in call_args[0][0]
+        assert "Spotify Swimmer Complete" in call_args[1]["headers"]["Title"]
+        assert "12 new tracks" in call_args[1]["data"]
+        assert "Discover Weekly: 8 new tracks" in call_args[1]["data"]
+        assert "Workout Mix: 4 new tracks" in call_args[1]["data"]
+
+    @patch("spotify_swimmer.notify.requests.post")
+    def test_send_failure_notification(self, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+
+        notifier = Notifier(
+            ntfy_server="https://ntfy.sh",
+            ntfy_topic="test-topic",
+            notify_on_success=True,
+            notify_on_failure=True,
+        )
+
+        result = SyncResult(
+            playlists=[
+                PlaylistResult(name="Discover Weekly", tracks_synced=0, error=None),
+            ],
+            transferred=False,
+            global_error="Login expired",
+        )
+
+        notifier.send(result)
+
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+        assert "Spotify Swimmer Failed" in call_args[1]["headers"]["Title"]
+        assert "Login expired" in call_args[1]["data"]
+
+    @patch("spotify_swimmer.notify.requests.post")
+    def test_skip_success_notification_when_disabled(self, mock_post):
+        notifier = Notifier(
+            ntfy_server="https://ntfy.sh",
+            ntfy_topic="test-topic",
+            notify_on_success=False,
+            notify_on_failure=True,
+        )
+
+        result = SyncResult(
+            playlists=[
+                PlaylistResult(name="Discover Weekly", tracks_synced=8, error=None),
+            ],
+            transferred=True,
+        )
+
+        notifier.send(result)
+        mock_post.assert_not_called()
