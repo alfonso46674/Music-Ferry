@@ -121,3 +121,36 @@ class TestLibrary:
 
         lib.delete_track("abc123")
         assert lib.is_downloaded("abc123") is False
+
+    def test_update_playlist(self, tmp_path: Path):
+        lib = Library(tmp_path / "library.json")
+        lib.update_playlist("playlist1", "My Playlist", track_count=10)
+
+        playlist = lib.get_playlist("playlist1")
+        assert playlist is not None
+        assert playlist.name == "My Playlist"
+        assert playlist.track_count == 10
+        assert playlist.last_synced is not None
+
+    def test_get_tracks_for_playlist(self, tmp_path: Path):
+        lib = Library(tmp_path / "library.json")
+        lib.add_track("track1", "track1.mp3", "Song 1", "Artist", "playlist1")
+        lib.add_track("track2", "track2.mp3", "Song 2", "Artist", "playlist1")
+        lib.add_track("track3", "track3.mp3", "Song 3", "Artist", "playlist2")
+
+        tracks = lib.get_tracks_for_playlist("playlist1")
+        assert len(tracks) == 2
+        track_ids = [t.id for t in tracks]
+        assert "track1" in track_ids
+        assert "track2" in track_ids
+        assert "track3" not in track_ids
+
+    def test_get_orphaned_tracks(self, tmp_path: Path):
+        lib = Library(tmp_path / "library.json")
+        lib.add_track("track1", "track1.mp3", "Song 1", "Artist", "playlist1")
+        lib.add_track("track2", "track2.mp3", "Song 2", "Artist", "playlist1")
+        lib.remove_track_from_playlist("track2", "playlist1")
+
+        orphaned = lib.get_orphaned_tracks()
+        assert len(orphaned) == 1
+        assert orphaned[0].id == "track2"

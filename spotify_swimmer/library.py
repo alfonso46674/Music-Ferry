@@ -1,6 +1,7 @@
 # spotify_swimmer/library.py
 import json
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 
@@ -133,3 +134,26 @@ class Library:
         if track_id in self._tracks:
             del self._tracks[track_id]
             self.save()
+
+    def get_playlist(self, playlist_id: str) -> LibraryPlaylist | None:
+        return self._playlists.get(playlist_id)
+
+    def update_playlist(
+        self, playlist_id: str, name: str, track_count: int = 0
+    ) -> None:
+        self._playlists[playlist_id] = LibraryPlaylist(
+            id=playlist_id,
+            name=name,
+            last_synced=datetime.now().isoformat(),
+            track_count=track_count,
+        )
+        self.save()
+
+    def get_tracks_for_playlist(self, playlist_id: str) -> list[LibraryTrack]:
+        return [
+            track for track in self._tracks.values()
+            if playlist_id in track.playlists
+        ]
+
+    def get_orphaned_tracks(self) -> list[LibraryTrack]:
+        return [track for track in self._tracks.values() if track.is_orphaned]
