@@ -61,20 +61,25 @@ class TestFullWorkflow:
     def test_transfer_syncs_correctly(self, setup_environment):
         config, tmp_path = setup_environment
 
-        lib = Library(tmp_path / "library.json")
+        # Setup spotify source directory structure
+        spotify_dir = config.paths.music_dir / "spotify"
+        spotify_music = spotify_dir / "music"
+        spotify_music.mkdir(parents=True)
+
+        lib = Library(spotify_dir / "library.json")
         lib.add_track("track1", "track1.mp3", "Song 1", "Artist", "playlist1")
         lib.add_track("track2", "track2.mp3", "Song 2", "Artist", "playlist1")
         lib.update_playlist("playlist1", "Test Playlist", 2)
 
-        # Create local files
-        (config.paths.music_dir / "track1.mp3").write_bytes(b"data1")
-        (config.paths.music_dir / "track2.mp3").write_bytes(b"data2")
+        # Create local files in spotify music dir
+        (spotify_music / "track1.mp3").write_bytes(b"data1")
+        (spotify_music / "track2.mp3").write_bytes(b"data2")
 
         # Create orphan on headphones
         headphones = config.paths.headphones_mount / "Music"
         (headphones / "orphan.mp3").write_bytes(b"orphan")
 
-        transfer = InteractiveTransfer(config, library=lib)
+        transfer = InteractiveTransfer(config, sources=["spotify"], spotify_library=lib)
         status = transfer.compute_status()
 
         assert status.local_track_count == 2
@@ -92,18 +97,23 @@ class TestFullWorkflow:
     def test_full_reset_clears_headphones(self, setup_environment):
         config, tmp_path = setup_environment
 
-        lib = Library(tmp_path / "library.json")
+        # Setup spotify source directory structure
+        spotify_dir = config.paths.music_dir / "spotify"
+        spotify_music = spotify_dir / "music"
+        spotify_music.mkdir(parents=True)
+
+        lib = Library(spotify_dir / "library.json")
         lib.add_track("track1", "track1.mp3", "Song 1", "Artist", "playlist1")
 
-        # Create local file
-        (config.paths.music_dir / "track1.mp3").write_bytes(b"data1")
+        # Create local file in spotify music dir
+        (spotify_music / "track1.mp3").write_bytes(b"data1")
 
         # Put old files on headphones
         headphones = config.paths.headphones_mount / "Music"
         (headphones / "old1.mp3").write_bytes(b"old1")
         (headphones / "old2.mp3").write_bytes(b"old2")
 
-        transfer = InteractiveTransfer(config, library=lib)
+        transfer = InteractiveTransfer(config, sources=["spotify"], spotify_library=lib)
         copied = transfer.full_reset()
 
         assert copied == 1
