@@ -75,6 +75,43 @@ class TestOrchestrator:
         orchestrator = Orchestrator(sample_config)
         assert orchestrator.library.is_downloaded("track1")
 
+    def test_cleanup_orphaned_tracks(self, sample_config: Config, tmp_path: Path):
+        orchestrator = Orchestrator(sample_config)
+
+        # Add a track to a playlist, then remove it (making it orphaned)
+        orchestrator.library.add_track(
+            "orphan1", "orphan1.mp3", "Orphan Song", "Artist", "playlist1"
+        )
+        orchestrator.library.remove_track_from_playlist("orphan1", "playlist1")
+
+        # Create the MP3 file
+        mp3_path = sample_config.paths.music_dir / "orphan1.mp3"
+        mp3_path.write_bytes(b"fake mp3 data")
+
+        deleted = orchestrator._cleanup_orphaned_tracks()
+
+        assert deleted == 1
+        assert not mp3_path.exists()
+        assert not orchestrator.library.is_downloaded("orphan1")
+
+    def test_cleanup_orphaned_tracks_keeps_non_orphans(self, sample_config: Config, tmp_path: Path):
+        orchestrator = Orchestrator(sample_config)
+
+        # Add a track that's NOT orphaned
+        orchestrator.library.add_track(
+            "active1", "active1.mp3", "Active Song", "Artist", "playlist1"
+        )
+
+        # Create the MP3 file
+        mp3_path = sample_config.paths.music_dir / "active1.mp3"
+        mp3_path.write_bytes(b"fake mp3 data")
+
+        deleted = orchestrator._cleanup_orphaned_tracks()
+
+        assert deleted == 0
+        assert mp3_path.exists()
+        assert orchestrator.library.is_downloaded("active1")
+
     @pytest.mark.asyncio
     @patch("spotify_swimmer.orchestrator.tag_mp3")
     @patch("spotify_swimmer.orchestrator.asyncio.sleep", new_callable=AsyncMock)

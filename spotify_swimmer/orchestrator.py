@@ -32,6 +32,26 @@ class Orchestrator:
             return tracks
         return [t for t in tracks if not self.library.is_downloaded(t.id)]
 
+    def _cleanup_orphaned_tracks(self) -> int:
+        """Delete orphaned tracks from disk and library. Returns count deleted."""
+        orphaned = self.library.get_orphaned_tracks()
+        deleted_count = 0
+
+        for track in orphaned:
+            mp3_path = self.config.paths.music_dir / track.filename
+
+            # Delete MP3 file if exists
+            if mp3_path.exists():
+                mp3_path.unlink()
+                logger.info(f"Deleted orphaned file: {track.filename}")
+
+            # Remove from library
+            self.library.delete_track(track.id)
+            deleted_count += 1
+            logger.info(f"Removed orphaned track: {track.title} by {track.artist}")
+
+        return deleted_count
+
     def _check_playlists_for_new_tracks(
         self, api: SpotifyAPI
     ) -> dict[str, list[Track]]:
