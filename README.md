@@ -22,27 +22,48 @@ Download Spotify and YouTube playlists to MP3 files for offline listening on wat
 - Linux with PipeWire/PulseAudio
 - Python 3.11+
 - FFmpeg
-- yt-dlp (for YouTube downloads)
 - Xvfb (for headless browser)
 - rsync
 
 ## Installation
+
+### Quick Install (recommended)
 
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/spotify-swimmer.git
 cd spotify-swimmer
 
-# Create virtual environment and install
+# Install the package (uses pipx if available, otherwise pip --user)
+./scripts/install.sh
+
+# Install Playwright browser for Spotify
+playwright install chromium
+
+# (Optional) Set up automatic scheduling
+./scripts/install-systemd.sh
+```
+
+### Development Install
+
+```bash
+# Clone and create virtual environment
+git clone https://github.com/yourusername/spotify-swimmer.git
+cd spotify-swimmer
 python3 -m venv .venv
 source .venv/bin/activate
+
+# Install in development mode
 pip install -e ".[dev]"
 
 # Install Playwright browser
 playwright install chromium
+```
 
-# Run the install script
-./scripts/install-systemd.sh
+### Uninstall
+
+```bash
+./scripts/uninstall.sh
 ```
 
 ## Configuration
@@ -120,10 +141,14 @@ YouTube playlists are downloaded directly using yt-dlp - no browser automation r
 Tracks are organized by source:
 ```
 ~/.spotify-swimmer/
-├── spotify/           # Spotify tracks
-│   └── Artist - Title.mp3
-└── youtube/           # YouTube tracks
-    └── Artist - Title.mp3
+├── config.yaml
+├── cookies/           # Spotify login cookies
+├── spotify/
+│   ├── library.json   # Track database
+│   └── music/         # MP3 files
+└── youtube/
+    ├── library.json
+    └── music/
 ```
 
 ## Usage
@@ -161,8 +186,8 @@ spotify-swimmer -c /path/to/config.yaml sync
 ### Sync Command
 
 The `sync` command:
-1. Fetches playlist metadata from Spotify API
-2. Downloads new tracks via browser recording
+1. Fetches playlist metadata from Spotify API / YouTube
+2. Downloads new tracks (browser recording for Spotify, yt-dlp for YouTube)
 3. Updates playlist membership tracking
 4. Removes orphaned tracks (no longer in any playlist)
 
@@ -178,16 +203,18 @@ The `transfer` command provides an interactive menu:
 
 The first time you run, you'll need to log into Spotify:
 
-1. Run `spotify-swimmer` manually
+1. Run `spotify-swimmer sync` manually
 2. The browser will open (or check logs for any login prompts)
 3. Cookies are saved for future automated runs
 
 ### Automatic Scheduling
 
-The installer sets up a systemd timer to run `sync` daily between 5-8am (randomized).
-Transfer is always manual (your headphones may not be connected during automated runs).
+Install the systemd timer for automatic daily syncs:
 
 ```bash
+# Install systemd units
+./scripts/install-systemd.sh
+
 # Enable the timer
 systemctl --user enable --now spotify-swimmer.timer
 
@@ -202,10 +229,9 @@ systemctl --user start spotify-swimmer.service
 
 # Disable the timer
 systemctl --user disable spotify-swimmer.timer
-
-# When ready to transfer, connect headphones and run:
-spotify-swimmer transfer
 ```
+
+Transfer is always manual (your headphones may not be connected during automated runs).
 
 ## Project Structure
 
@@ -214,8 +240,8 @@ spotify-swimmer/
 ├── spotify_swimmer/
 │   ├── __init__.py
 │   ├── config.py        # YAML config loading
-│   ├── library.py       # Track/playlist persistence with membership tracking
-│   ├── spotify_api.py   # Playlist metadata fetching
+│   ├── library.py       # Track/playlist persistence
+│   ├── spotify_api.py   # Spotify playlist metadata
 │   ├── browser.py       # Playwright automation
 │   ├── recorder.py      # PipeWire/FFmpeg recording
 │   ├── tagger.py        # MP3 ID3 tagging
@@ -223,33 +249,31 @@ spotify-swimmer/
 │   ├── notify.py        # Ntfy notifications
 │   ├── orchestrator.py  # Main sync workflow
 │   ├── cli.py           # Command-line interface
-│   └── youtube/         # YouTube download module
+│   └── youtube/
 │       ├── __init__.py
-│       ├── api.py       # YouTube playlist metadata
-│       ├── downloader.py # yt-dlp wrapper
-│       └── library.py   # YouTube track persistence
-├── tests/               # Test suite
-├── bin/
-│   └── sync.sh          # Systemd entry point
-├── systemd/
-│   ├── spotify-swimmer.service
-│   └── spotify-swimmer.timer
+│       └── downloader.py # yt-dlp wrapper
+├── tests/               # Test suite (117 tests)
 ├── scripts/
-│   └── install-systemd.sh
+│   ├── install.sh       # Install package
+│   ├── install-systemd.sh # Install systemd timer
+│   └── uninstall.sh     # Uninstall everything
 └── pyproject.toml
 ```
 
 ## Development
 
 ```bash
+# Activate development environment
+source .venv/bin/activate
+
 # Run tests
 pytest -v
 
 # Run specific test file
 pytest tests/test_config.py -v
 
-# Install in development mode
-pip install -e ".[dev]"
+# Run with coverage
+pytest --cov=spotify_swimmer
 ```
 
 ## How Recording Works
@@ -271,7 +295,7 @@ pip install -e ".[dev]"
 
 ### "Login expired" error
 
-Run `spotify-swimmer` manually to re-authenticate. Cookies are saved to `~/.spotify-swimmer/cookies/`.
+Run `spotify-swimmer sync` manually to re-authenticate. Cookies are saved to `~/.spotify-swimmer/cookies/`.
 
 ### No audio recorded
 

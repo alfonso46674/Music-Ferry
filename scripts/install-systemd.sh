@@ -1,98 +1,65 @@
 #!/bin/bash
 # scripts/install-systemd.sh
-# Install systemd user units for Spotify Swimmer
+# Install systemd user units for automatic scheduling
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-INSTALL_DIR="$HOME/.spotify-swimmer"
 SYSTEMD_DIR="$HOME/.config/systemd/user"
 
-echo "Installing Spotify Swimmer..."
-
-# Create installation directory
-mkdir -p "$INSTALL_DIR/bin"
-mkdir -p "$INSTALL_DIR/spotify/music"
-mkdir -p "$INSTALL_DIR/youtube/music"
-mkdir -p "$INSTALL_DIR/cookies"
-mkdir -p "$INSTALL_DIR/logs"
-
-# Create virtual environment if it doesn't exist
-if [ ! -d "$INSTALL_DIR/.venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv "$INSTALL_DIR/.venv"
+# Verify spotify-swimmer is installed
+if ! command -v spotify-swimmer &> /dev/null; then
+    echo "Error: spotify-swimmer not found in PATH"
+    echo "Please run install.sh first, or add ~/.local/bin to your PATH"
+    exit 1
 fi
 
-# Install the package
-echo "Installing spotify-swimmer package..."
-"$INSTALL_DIR/.venv/bin/pip" install --upgrade pip
-"$INSTALL_DIR/.venv/bin/pip" install "$PROJECT_DIR"
+echo "Installing systemd units..."
 
-# Copy sync.sh wrapper
-cp "$PROJECT_DIR/bin/sync.sh" "$INSTALL_DIR/bin/"
-chmod +x "$INSTALL_DIR/bin/sync.sh"
-
-# Create sample config if not exists
-if [ ! -f "$INSTALL_DIR/config.yaml" ]; then
-    cat > "$INSTALL_DIR/config.yaml" << 'EOF'
-spotify:
-  enabled: true
-  client_id: "YOUR_SPOTIFY_CLIENT_ID"
-  client_secret: "YOUR_SPOTIFY_CLIENT_SECRET"
-  username: "YOUR_SPOTIFY_USERNAME"
-  playlists:
-    - name: "Discover Weekly"
-      url: "https://open.spotify.com/playlist/YOUR_PLAYLIST_ID"
-
-youtube:
-  enabled: false
-  playlists:
-    - name: "Coding Music"
-      url: "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID"
-
-audio:
-  bitrate: 192
-  format: "mp3"
-
-paths:
-  music_dir: "~/.spotify-swimmer"
-  headphones_mount: "/media/YOUR_USERNAME/HEADPHONES"
-  headphones_music_folder: "Music"
-
-notifications:
-  ntfy_topic: "your-secret-topic"
-  ntfy_server: "https://ntfy.sh"
-  notify_on_success: false
-  notify_on_failure: true
-
-behavior:
-  skip_existing: true
-  trim_silence: true
-EOF
-    echo "Created sample config at $INSTALL_DIR/config.yaml"
-    echo "Please edit it with your Spotify credentials and settings."
-fi
-
-# Install systemd units
+# Create systemd directory
 mkdir -p "$SYSTEMD_DIR"
-cp "$PROJECT_DIR/systemd/spotify-swimmer.service" "$SYSTEMD_DIR/"
-cp "$PROJECT_DIR/systemd/spotify-swimmer.timer" "$SYSTEMD_DIR/"
+
+# Install service unit
+cat > "$SYSTEMD_DIR/spotify-swimmer.service" << 'EOF'
+[Unit]
+Description=Spotify Swimmer - Download playlists for offline swimming
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Start Xvfb for headless browser, then run sync
+ExecStart=/bin/bash -c 'Xvfb :99 -screen 0 1920x1080x24 & XVFB_PID=$!; sleep 1; DISPLAY=:99 spotify-swimmer sync; kill $XVFB_PID 2>/dev/null || true'
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=default.target
+EOF
+
+# Install timer unit
+cat > "$SYSTEMD_DIR/spotify-swimmer.timer" << 'EOF'
+[Unit]
+Description=Run Spotify Swimmer daily
+
+[Timer]
+OnCalendar=*-*-* 05:00:00
+RandomizedDelaySec=3h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
 
 # Reload systemd
 systemctl --user daemon-reload
 
 echo ""
-echo "Installation complete!"
-echo ""
-echo "Next steps:"
-echo "1. Edit config: $INSTALL_DIR/config.yaml"
-echo "2. Install Playwright browsers: $INSTALL_DIR/.venv/bin/playwright install chromium"
-echo "3. Login to Spotify manually once to save cookies"
-echo "4. Enable timer: systemctl --user enable --now spotify-swimmer.timer"
+echo "Systemd units installed!"
 echo ""
 echo "Commands:"
+echo "  Enable timer:    systemctl --user enable --now spotify-swimmer.timer"
 echo "  Run manually:    systemctl --user start spotify-swimmer.service"
 echo "  View logs:       journalctl --user -u spotify-swimmer.service -f"
 echo "  Check timer:     systemctl --user list-timers spotify-swimmer.timer"
-echo "  Run directly:    $INSTALL_DIR/.venv/bin/spotify-swimmer sync"
+echo "  Disable timer:   systemctl --user disable spotify-swimmer.timer"
