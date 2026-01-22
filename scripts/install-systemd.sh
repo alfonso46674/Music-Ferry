@@ -27,20 +27,26 @@ chmod +x "$INSTALL_DIR/bin/sync.sh"
 if [ ! -f "$INSTALL_DIR/config.yaml" ]; then
     cat > "$INSTALL_DIR/config.yaml" << 'EOF'
 spotify:
+  enabled: true
   client_id: "YOUR_SPOTIFY_CLIENT_ID"
   client_secret: "YOUR_SPOTIFY_CLIENT_SECRET"
   username: "YOUR_SPOTIFY_USERNAME"
+  playlists:
+    - name: "Discover Weekly"
+      url: "https://open.spotify.com/playlist/YOUR_PLAYLIST_ID"
 
-playlists:
-  - name: "Discover Weekly"
-    url: "https://open.spotify.com/playlist/YOUR_PLAYLIST_ID"
+youtube:
+  enabled: false
+  playlists:
+    - name: "Coding Music"
+      url: "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID"
 
 audio:
   bitrate: 192
   format: "mp3"
 
 paths:
-  music_dir: "~/.spotify-swimmer/music"
+  music_dir: "~/.spotify-swimmer"
   headphones_mount: "/media/YOUR_USERNAME/HEADPHONES"
   headphones_music_folder: "Music"
 
@@ -52,7 +58,6 @@ notifications:
 
 behavior:
   skip_existing: true
-  auto_transfer: true
   trim_silence: true
 EOF
     echo "Created sample config at $INSTALL_DIR/config.yaml"
