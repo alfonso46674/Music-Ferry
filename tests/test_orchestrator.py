@@ -6,7 +6,7 @@ import pytest
 
 from spotify_swimmer.orchestrator import Orchestrator
 from spotify_swimmer.config import (
-    Config, SpotifyConfig, PlaylistConfig, AudioConfig,
+    Config, SpotifyConfig, YouTubeConfig, PlaylistConfig, AudioConfig,
     PathsConfig, NotificationsConfig, BehaviorConfig
 )
 from spotify_swimmer.spotify_api import Track
@@ -19,10 +19,12 @@ def sample_config(tmp_path: Path) -> Config:
             client_id="test_id",
             client_secret="test_secret",
             username="test_user",
+            enabled=True,
+            playlists=[
+                PlaylistConfig(name="Test Playlist", url="https://open.spotify.com/playlist/abc123"),
+            ],
         ),
-        playlists=[
-            PlaylistConfig(name="Test Playlist", url="https://open.spotify.com/playlist/abc123"),
-        ],
+        youtube=YouTubeConfig(enabled=False, playlists=[]),
         audio=AudioConfig(bitrate=192, format="mp3"),
         paths=PathsConfig(
             music_dir=tmp_path / "music",
@@ -37,7 +39,6 @@ def sample_config(tmp_path: Path) -> Config:
         ),
         behavior=BehaviorConfig(
             skip_existing=True,
-            auto_transfer=True,
             trim_silence=True,
         ),
     )
@@ -160,6 +161,111 @@ class TestOrchestrator:
         assert "playlist1" not in track2.playlists
         assert track2.is_orphaned
 
+class TestPlaybackModeSelection:
+    def test_playlist_mode_when_mostly_new(self):
+        # 8 new out of 10 = 80% > 70% threshold
+        mode = Orchestrator._select_playback_mode(new_count=8, total_count=10)
+        assert mode == "playlist"
+
+    def test_individual_mode_when_few_new(self):
+        # 2 new out of 10 = 20% < 70% threshold
+        mode = Orchestrator._select_playback_mode(new_count=2, total_count=10)
+        assert mode == "individual"
+
+    def test_playlist_mode_at_threshold(self):
+        # 7 new out of 10 = 70% = threshold
+        mode = Orchestrator._select_playback_mode(new_count=7, total_count=10)
+        assert mode == "playlist"
+
+    def test_individual_mode_below_threshold(self):
+        # 6 new out of 10 = 60% < 70%
+        mode = Orchestrator._select_playback_mode(new_count=6, total_count=10)
+        assert mode == "individual"
+
+    def test_playlist_mode_when_all_new(self):
+        mode = Orchestrator._select_playback_mode(new_count=10, total_count=10)
+        assert mode == "playlist"
+
+    def test_individual_mode_when_empty_playlist(self):
+        mode = Orchestrator._select_playback_mode(new_count=0, total_count=0)
+        assert mode == "individual"
+
+
+class TestPlaylistModeRecording:
+    @pytest.mark.asyncio
+    async def test_record_playlist_mode_records_only_new(self, sample_config: Config, tmp_path: Path):
+        from spotify_swimmer.library import Library
+
+        # Setup library with one existing track
+        lib = Library(tmp_path / "library.json")
+        lib.add_track("existing1", "existing1.mp3", "Existing", "Artist", "playlist1")
+
+        orchestrator = Orchestrator.__new__(Orchestrator)
+        orchestrator.config = sample_config
+        orchestrator.library = lib
+
+        all_tracks = [
+            Track(id="existing1", name="Existing", artists=["Artist"], album="Album", duration_ms=180000, album_art_url=None),
+            Track(id="new1", name="New Song", artists=["Artist"], album="Album", duration_ms=200000, album_art_url=None),
+        ]
+        new_track_ids = {"new1"}
+
+        mock_browser = MagicMock()
+        # Track changes from existing1 -> new1 -> None (end of playlist)
+        mock_browser.get_current_track_id.return_value = "existing1"
+        mock_browser.play_playlist = AsyncMock()
+        mock_browser.wait_for_track_change = AsyncMock(side_effect=["new1", None])
+
+        mock_recorder = MagicMock()
+
+        with patch.object(orchestrator, '_record_current_track', new_callable=AsyncMock) as mock_record:
+            recorded = await orchestrator._record_playlist_mode(
+                playlist_id="playlist1",
+                all_tracks=all_tracks,
+                new_track_ids=new_track_ids,
+                browser=mock_browser,
+                recorder=mock_recorder,
+            )
+
+        # Should only record the new track (not existing1)
+        assert mock_record.call_count == 1
+        # The recorded track should be new1
+        assert mock_record.call_args[0][0].id == "new1"
+
+    @pytest.mark.asyncio
+    async def test_record_playlist_mode_stops_at_playlist_end(self, sample_config: Config, tmp_path: Path):
+        from spotify_swimmer.library import Library
+
+        lib = Library(tmp_path / "library.json")
+        orchestrator = Orchestrator.__new__(Orchestrator)
+        orchestrator.config = sample_config
+        orchestrator.library = lib
+
+        all_tracks = [
+            Track(id="track1", name="Song 1", artists=["Artist"], album="Album", duration_ms=180000, album_art_url=None),
+        ]
+
+        mock_browser = MagicMock()
+        mock_browser.get_current_track_id.return_value = "track1"
+        mock_browser.play_playlist = AsyncMock()
+        mock_browser.wait_for_track_change = AsyncMock(return_value=None)  # Playlist ends
+
+        mock_recorder = MagicMock()
+
+        with patch.object(orchestrator, '_record_current_track', new_callable=AsyncMock) as mock_record:
+            recorded = await orchestrator._record_playlist_mode(
+                playlist_id="playlist1",
+                all_tracks=all_tracks,
+                new_track_ids={"track1"},
+                browser=mock_browser,
+                recorder=mock_recorder,
+            )
+
+        assert mock_record.call_count == 1
+        assert recorded == 1
+
+
+class TestOrchestratorSync:
     @pytest.mark.asyncio
     @patch("spotify_swimmer.orchestrator.tag_mp3")
     @patch("spotify_swimmer.orchestrator.asyncio.sleep", new_callable=AsyncMock)
@@ -183,10 +289,15 @@ class TestOrchestrator:
         ]
         mock_api_class.return_value = mock_api
 
-        mock_browser = AsyncMock()
-        mock_browser.__aenter__.return_value = mock_browser
-        mock_browser.__aexit__.return_value = None
-        mock_browser.is_logged_in.return_value = True
+        mock_browser = MagicMock()
+        mock_browser.__aenter__ = AsyncMock(return_value=mock_browser)
+        mock_browser.__aexit__ = AsyncMock(return_value=None)
+        mock_browser.is_logged_in = AsyncMock(return_value=True)
+        mock_browser.play_playlist = AsyncMock()
+        mock_browser.play_track = AsyncMock()
+        # With 100% new tracks, playlist mode is used - mock track detection
+        mock_browser.get_current_track_id.return_value = "track1"
+        mock_browser.wait_for_track_change = AsyncMock(return_value=None)  # End of playlist
         mock_browser_class.return_value = mock_browser
 
         mock_recorder = MagicMock()

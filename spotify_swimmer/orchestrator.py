@@ -14,6 +14,8 @@ from spotify_swimmer.notify import Notifier, SyncResult, PlaylistResult
 
 logger = logging.getLogger(__name__)
 
+PLAYLIST_MODE_THRESHOLD = 0.7  # Use playlist mode when >= 70% of tracks are new
+
 
 class Orchestrator:
     def __init__(self, config: Config):
@@ -30,6 +32,20 @@ class Orchestrator:
         if not self.config.behavior.skip_existing:
             return tracks
         return [t for t in tracks if not self.library.is_downloaded(t.id)]
+
+    @staticmethod
+    def _select_playback_mode(new_count: int, total_count: int) -> str:
+        """Select playback mode based on ratio of new tracks.
+
+        Returns 'playlist' if >= 70% of tracks are new (looks more natural),
+        otherwise returns 'individual' for targeted downloads.
+        """
+        if total_count == 0:
+            return "individual"
+        ratio = new_count / total_count
+        if ratio >= PLAYLIST_MODE_THRESHOLD:
+            return "playlist"
+        return "individual"
 
     def _cleanup_orphaned_tracks(self) -> int:
         """Delete orphaned tracks from disk and library. Returns count deleted."""
@@ -77,7 +93,7 @@ class Orchestrator:
         """Fetch all tracks for all playlists. Returns dict mapping playlist_id -> tracks."""
         all_playlist_tracks: dict[str, list[Track]] = {}
 
-        for playlist in self.config.playlists:
+        for playlist in self.config.spotify.playlists:
             try:
                 tracks = api.get_playlist_tracks(playlist.playlist_id)
                 all_playlist_tracks[playlist.playlist_id] = tracks
@@ -110,7 +126,7 @@ class Orchestrator:
 
         # Determine which playlists have new tracks
         playlists_with_new_tracks: dict[str, list[Track]] = {}
-        for playlist in self.config.playlists:
+        for playlist in self.config.spotify.playlists:
             all_tracks = all_playlist_tracks.get(playlist.playlist_id, [])
             new_tracks = self._filter_new_tracks(all_tracks)
             if new_tracks:
@@ -142,11 +158,12 @@ class Orchestrator:
                             global_error = "Login expired - please re-authenticate"
                             raise RuntimeError(global_error)
 
-                        for playlist in self.config.playlists:
+                        for playlist in self.config.spotify.playlists:
                             new_tracks = playlists_with_new_tracks.get(playlist.playlist_id)
+                            all_tracks = all_playlist_tracks.get(playlist.playlist_id, [])
                             if new_tracks:
                                 result = await self._sync_playlist_tracks(
-                                    playlist, new_tracks, browser, recorder
+                                    playlist, new_tracks, all_tracks, browser, recorder
                                 )
                             else:
                                 result = PlaylistResult(
@@ -156,21 +173,21 @@ class Orchestrator:
 
             except RuntimeError as e:
                 global_error = str(e)
-                for playlist in self.config.playlists:
+                for playlist in self.config.spotify.playlists:
                     if not any(r.name == playlist.name for r in playlist_results):
                         playlist_results.append(
                             PlaylistResult(name=playlist.name, tracks_synced=0, error=str(e))
                         )
         else:
             logger.info("All playlists are fully synced. No downloads needed.")
-            for playlist in self.config.playlists:
+            for playlist in self.config.spotify.playlists:
                 playlist_results.append(
                     PlaylistResult(name=playlist.name, tracks_synced=0, error=None)
                 )
 
         # Update playlist membership for all playlists
         logger.info("Updating playlist membership...")
-        for playlist in self.config.playlists:
+        for playlist in self.config.spotify.playlists:
             all_tracks = all_playlist_tracks.get(playlist.playlist_id, [])
             self._update_playlist_membership(
                 playlist.playlist_id, playlist.name, all_tracks
@@ -194,21 +211,36 @@ class Orchestrator:
     async def _sync_playlist_tracks(
         self,
         playlist: PlaylistConfig,
-        tracks: list[Track],
+        new_tracks: list[Track],
+        all_tracks: list[Track],
         browser: SpotifyBrowser,
         recorder: AudioRecorder,
     ) -> PlaylistResult:
-        """Sync pre-fetched tracks for a playlist."""
+        """Sync tracks for a playlist using appropriate playback mode."""
         try:
-            logger.info(f"Playlist '{playlist.name}': syncing {len(tracks)} tracks")
+            mode = self._select_playback_mode(len(new_tracks), len(all_tracks))
+            logger.info(
+                f"Playlist '{playlist.name}': {len(new_tracks)} new of {len(all_tracks)} "
+                f"total, using {mode} mode"
+            )
 
-            synced_count = 0
-            for track in tracks:
-                try:
-                    await self._record_track(track, browser, recorder)
-                    synced_count += 1
-                except Exception as e:
-                    logger.error(f"Failed to record {track.name}: {e}")
+            if mode == "playlist":
+                new_track_ids = {t.id for t in new_tracks}
+                synced_count = await self._record_playlist_mode(
+                    playlist.playlist_id,
+                    all_tracks,
+                    new_track_ids,
+                    browser,
+                    recorder,
+                )
+            else:
+                synced_count = 0
+                for track in new_tracks:
+                    try:
+                        await self._record_track(track, browser, recorder)
+                        synced_count += 1
+                    except Exception as e:
+                        logger.error(f"Failed to record {track.name}: {e}")
 
             return PlaylistResult(
                 name=playlist.name,
@@ -245,6 +277,83 @@ class Orchestrator:
 
         tag_mp3(output_path, track)
         # Note: playlist_id will be added by _update_playlist_membership
+        self.library.add_track(
+            track.id, f"{track.id}.mp3", track.name, track.artist_string, ""
+        )
+
+        logger.info(f"Completed: {track.name}")
+
+    async def _record_playlist_mode(
+        self,
+        playlist_id: str,
+        all_tracks: list[Track],
+        new_track_ids: set[str],
+        browser: SpotifyBrowser,
+        recorder: AudioRecorder,
+    ) -> int:
+        """Record tracks by playing the playlist. Returns count of tracks recorded."""
+        track_map = {t.id: t for t in all_tracks}
+        recorded_count = 0
+
+        logger.info(
+            f"Starting playlist mode for {len(all_tracks)} tracks "
+            f"({len(new_track_ids)} new)"
+        )
+
+        # Start playing the playlist
+        await browser.play_playlist(playlist_id)
+        await asyncio.sleep(2)
+
+        current_track_id = browser.get_current_track_id()
+        tracks_seen: set[str] = set()
+
+        while current_track_id and len(tracks_seen) < len(all_tracks):
+            tracks_seen.add(current_track_id)
+            track = track_map.get(current_track_id)
+
+            if not track:
+                logger.warning(f"Unknown track playing: {current_track_id}")
+            elif current_track_id in new_track_ids:
+                # Record this track
+                logger.info(f"Recording: {track.name} by {track.artist_string}")
+                try:
+                    await self._record_current_track(track, browser, recorder)
+                    recorded_count += 1
+                except Exception as e:
+                    logger.error(f"Failed to record {track.name}: {e}")
+            else:
+                # Let existing track play through
+                logger.debug(f"Skipping (already have): {track.name}")
+
+            # Wait for next track
+            timeout = (track.duration_seconds + 30) if track else 300
+            next_track_id = await browser.wait_for_track_change(
+                current_track_id,
+                timeout_seconds=timeout
+            )
+
+            if next_track_id is None:
+                logger.info("Playlist finished or timed out")
+                break
+
+            current_track_id = next_track_id
+
+        return recorded_count
+
+    async def _record_current_track(
+        self,
+        track: Track,
+        browser: SpotifyBrowser,
+        recorder: AudioRecorder,
+    ) -> None:
+        """Record the currently playing track."""
+        output_path = self.config.paths.music_dir / f"{track.id}.mp3"
+
+        recorder.start_recording(output_path)
+        await asyncio.sleep(track.duration_seconds + 2)
+        recorder.stop_recording()
+
+        tag_mp3(output_path, track)
         self.library.add_track(
             track.id, f"{track.id}.mp3", track.name, track.artist_string, ""
         )

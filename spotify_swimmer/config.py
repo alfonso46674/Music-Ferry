@@ -8,23 +8,38 @@ import yaml
 
 
 @dataclass
-class SpotifyConfig:
-    client_id: str
-    client_secret: str
-    username: str
-
-
-@dataclass
 class PlaylistConfig:
     name: str
     url: str
 
     @property
     def playlist_id(self) -> str:
-        match = re.search(r"playlist/([a-zA-Z0-9]+)", self.url)
-        if not match:
-            raise ValueError(f"Invalid playlist URL: {self.url}")
-        return match.group(1)
+        # Try Spotify URL format: playlist/[id]
+        spotify_match = re.search(r"playlist/([a-zA-Z0-9]+)", self.url)
+        if spotify_match:
+            return spotify_match.group(1)
+
+        # Try YouTube URL format: ?list=[id] or &list=[id]
+        youtube_match = re.search(r"[?&]list=([a-zA-Z0-9_-]+)", self.url)
+        if youtube_match:
+            return youtube_match.group(1)
+
+        raise ValueError(f"Invalid playlist URL: {self.url}")
+
+
+@dataclass
+class SpotifyConfig:
+    client_id: str
+    client_secret: str
+    username: str
+    enabled: bool = True
+    playlists: list[PlaylistConfig] = field(default_factory=list)
+
+
+@dataclass
+class YouTubeConfig:
+    enabled: bool = False
+    playlists: list[PlaylistConfig] = field(default_factory=list)
 
 
 @dataclass
@@ -57,14 +72,13 @@ class NotificationsConfig:
 @dataclass
 class BehaviorConfig:
     skip_existing: bool = True
-    auto_transfer: bool = True
     trim_silence: bool = True
 
 
 @dataclass
 class Config:
     spotify: SpotifyConfig
-    playlists: list[PlaylistConfig]
+    youtube: YouTubeConfig
     audio: AudioConfig
     paths: PathsConfig
     notifications: NotificationsConfig
@@ -84,16 +98,37 @@ def load_config(config_path: Path) -> Config:
         if required not in spotify_data:
             raise ValueError(f"Missing required spotify field: {required}")
 
+    # Parse Spotify playlists - check both spotify.playlists and root-level playlists (backward compat)
+    spotify_playlists_data = spotify_data.get("playlists", [])
+    root_playlists_data = data.get("playlists", [])
+
+    # Migrate root-level playlists to spotify.playlists for backward compatibility
+    if root_playlists_data and not spotify_playlists_data:
+        spotify_playlists_data = root_playlists_data
+
+    spotify_playlists = [
+        PlaylistConfig(name=p["name"], url=p["url"])
+        for p in spotify_playlists_data
+    ]
+
     spotify = SpotifyConfig(
         client_id=spotify_data["client_id"],
         client_secret=spotify_data["client_secret"],
         username=spotify_data["username"],
+        enabled=spotify_data.get("enabled", True),
+        playlists=spotify_playlists,
     )
 
-    playlists = [
+    # Parse YouTube config
+    youtube_data = data.get("youtube", {})
+    youtube_playlists = [
         PlaylistConfig(name=p["name"], url=p["url"])
-        for p in data.get("playlists", [])
+        for p in youtube_data.get("playlists", [])
     ]
+    youtube = YouTubeConfig(
+        enabled=youtube_data.get("enabled", False),
+        playlists=youtube_playlists,
+    )
 
     audio_data = data.get("audio", {})
     audio = AudioConfig(
@@ -119,13 +154,12 @@ def load_config(config_path: Path) -> Config:
     behavior_data = data.get("behavior", {})
     behavior = BehaviorConfig(
         skip_existing=behavior_data.get("skip_existing", True),
-        auto_transfer=behavior_data.get("auto_transfer", True),
         trim_silence=behavior_data.get("trim_silence", True),
     )
 
     return Config(
         spotify=spotify,
-        playlists=playlists,
+        youtube=youtube,
         audio=audio,
         paths=paths,
         notifications=notifications,
