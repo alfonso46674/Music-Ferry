@@ -80,3 +80,121 @@ class TestSpotifyBrowserIntegration:
 
         mock_page.goto.assert_called()
         mock_locator.click.assert_called()
+
+    @pytest.mark.asyncio
+    @patch("spotify_swimmer.browser.async_playwright")
+    async def test_play_playlist(self, mock_playwright):
+        mock_pw = AsyncMock()
+        mock_browser = AsyncMock()
+        mock_context = AsyncMock()
+        mock_page = AsyncMock()
+
+        mock_pw_manager = MagicMock()
+        mock_pw_manager.start = AsyncMock(return_value=mock_pw)
+        mock_playwright.return_value = mock_pw_manager
+        mock_pw.chromium.launch = AsyncMock(return_value=mock_browser)
+        mock_browser.new_context = AsyncMock(return_value=mock_context)
+        mock_context.new_page = AsyncMock(return_value=mock_page)
+        mock_context.cookies = AsyncMock(return_value=[])
+
+        mock_locator = AsyncMock()
+        mock_page.locator = MagicMock(return_value=mock_locator)
+
+        async with SpotifyBrowser(
+            cookies_dir=Path("/tmp/cookies"),
+            audio_sink="test-sink",
+        ) as browser:
+            await browser.play_playlist("playlist123")
+
+        # Should navigate to playlist URL
+        call_args = mock_page.goto.call_args_list[-1]
+        assert "playlist/playlist123" in call_args[0][0]
+        # Should click play button
+        mock_locator.click.assert_called()
+
+    @pytest.mark.asyncio
+    @patch("spotify_swimmer.browser.async_playwright")
+    async def test_skip_to_next(self, mock_playwright):
+        mock_pw = AsyncMock()
+        mock_browser = AsyncMock()
+        mock_context = AsyncMock()
+        mock_page = AsyncMock()
+
+        mock_pw_manager = MagicMock()
+        mock_pw_manager.start = AsyncMock(return_value=mock_pw)
+        mock_playwright.return_value = mock_pw_manager
+        mock_pw.chromium.launch = AsyncMock(return_value=mock_browser)
+        mock_browser.new_context = AsyncMock(return_value=mock_context)
+        mock_context.new_page = AsyncMock(return_value=mock_page)
+        mock_context.cookies = AsyncMock(return_value=[])
+
+        mock_locator = AsyncMock()
+        mock_page.locator = MagicMock(return_value=mock_locator)
+
+        async with SpotifyBrowser(
+            cookies_dir=Path("/tmp/cookies"),
+            audio_sink="test-sink",
+        ) as browser:
+            await browser.skip_to_next()
+
+        # Should click the skip forward button
+        mock_page.locator.assert_called_with('[data-testid="control-button-skip-forward"]')
+        mock_locator.click.assert_called()
+
+
+class TestBrowserUrlParsing:
+    def test_get_current_track_id_from_track_url(self):
+        browser = SpotifyBrowser.__new__(SpotifyBrowser)
+        browser.base_url = "https://open.spotify.com"
+        browser.page = MagicMock()
+        browser.page.url = "https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh"
+
+        track_id = browser.get_current_track_id()
+        assert track_id == "4iV5W9uYEdYUVa79Axb7Rh"
+
+    def test_get_current_track_id_with_query_params(self):
+        browser = SpotifyBrowser.__new__(SpotifyBrowser)
+        browser.base_url = "https://open.spotify.com"
+        browser.page = MagicMock()
+        browser.page.url = "https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh?si=abc123"
+
+        track_id = browser.get_current_track_id()
+        assert track_id == "4iV5W9uYEdYUVa79Axb7Rh"
+
+    def test_get_current_track_id_returns_none_for_non_track(self):
+        browser = SpotifyBrowser.__new__(SpotifyBrowser)
+        browser.base_url = "https://open.spotify.com"
+        browser.page = MagicMock()
+        browser.page.url = "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"
+
+        track_id = browser.get_current_track_id()
+        assert track_id is None
+
+
+class TestWaitForTrackChange:
+    @pytest.mark.asyncio
+    async def test_wait_for_track_change_detects_change(self):
+        browser = SpotifyBrowser.__new__(SpotifyBrowser)
+        browser.page = MagicMock()
+
+        # URL changes after 2 checks
+        browser.page.url = "https://open.spotify.com/track/track1"
+
+        async def mock_sleep(duration):
+            browser.page.url = "https://open.spotify.com/track/track2"
+
+        with patch("spotify_swimmer.browser.asyncio.sleep", side_effect=mock_sleep):
+            new_track = await browser.wait_for_track_change("track1", timeout_seconds=10)
+
+        assert new_track == "track2"
+
+    @pytest.mark.asyncio
+    async def test_wait_for_track_change_times_out(self):
+        browser = SpotifyBrowser.__new__(SpotifyBrowser)
+        browser.page = MagicMock()
+        browser.page.url = "https://open.spotify.com/track/track1"
+
+        with patch("spotify_swimmer.browser.asyncio.sleep", new_callable=AsyncMock):
+            new_track = await browser.wait_for_track_change("track1", timeout_seconds=0.1)
+
+        assert new_track is None

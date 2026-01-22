@@ -174,3 +174,57 @@ class SpotifyBrowser:
         await self._random_delay(500, 1500)
         login_button = self.page.locator('[data-testid="login-button"]')
         return not await login_button.is_visible()
+
+    async def play_playlist(self, playlist_id: str) -> None:
+        """Navigate to playlist and start playing from the first track."""
+        url = self._get_playlist_url(playlist_id)
+        await self.page.goto(url, wait_until="networkidle")
+
+        # Random delay before clicking play (like a human looking at the page)
+        await self._random_delay(1000, 3000)
+
+        play_button = self.page.locator('[data-testid="play-button"]')
+        await play_button.wait_for(state="visible", timeout=10000)
+        await play_button.click()
+
+    async def skip_to_next(self) -> None:
+        """Skip to the next track in the current playback."""
+        await self._random_delay(300, 800)
+        skip_button = self.page.locator('[data-testid="control-button-skip-forward"]')
+        await skip_button.wait_for(state="visible", timeout=5000)
+        await skip_button.click()
+
+    def get_current_track_id(self) -> Optional[str]:
+        """Extract the track ID from the current page URL.
+
+        Returns None if not on a track page.
+        """
+        import re
+
+        url = self.page.url
+        match = re.search(r"/track/([a-zA-Z0-9]+)", url)
+        if match:
+            return match.group(1)
+        return None
+
+    async def wait_for_track_change(
+        self,
+        current_track_id: str,
+        timeout_seconds: float = 300,
+    ) -> Optional[str]:
+        """Wait for the track to change from the current one.
+
+        Returns the new track ID or None if timeout reached.
+        """
+        import time
+
+        start_time = time.time()
+        poll_interval = 1.0  # Check every second
+
+        while time.time() - start_time < timeout_seconds:
+            new_track_id = self.get_current_track_id()
+            if new_track_id and new_track_id != current_track_id:
+                return new_track_id
+            await asyncio.sleep(poll_interval)
+
+        return None

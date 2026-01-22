@@ -13,13 +13,23 @@ echo "Installing Spotify Swimmer..."
 
 # Create installation directory
 mkdir -p "$INSTALL_DIR/bin"
-mkdir -p "$INSTALL_DIR/music"
+mkdir -p "$INSTALL_DIR/spotify/music"
+mkdir -p "$INSTALL_DIR/youtube/music"
 mkdir -p "$INSTALL_DIR/cookies"
 mkdir -p "$INSTALL_DIR/logs"
 
-# Copy project files
-cp -r "$PROJECT_DIR/spotify_swimmer" "$INSTALL_DIR/"
-cp -r "$PROJECT_DIR/.venv" "$INSTALL_DIR/"
+# Create virtual environment if it doesn't exist
+if [ ! -d "$INSTALL_DIR/.venv" ]; then
+    echo "Creating virtual environment..."
+    python3 -m venv "$INSTALL_DIR/.venv"
+fi
+
+# Install the package
+echo "Installing spotify-swimmer package..."
+"$INSTALL_DIR/.venv/bin/pip" install --upgrade pip
+"$INSTALL_DIR/.venv/bin/pip" install "$PROJECT_DIR"
+
+# Copy sync.sh wrapper
 cp "$PROJECT_DIR/bin/sync.sh" "$INSTALL_DIR/bin/"
 chmod +x "$INSTALL_DIR/bin/sync.sh"
 
@@ -66,7 +76,7 @@ fi
 
 # Install systemd units
 mkdir -p "$SYSTEMD_DIR"
-sed "s|%h|$HOME|g" "$PROJECT_DIR/systemd/spotify-swimmer.service" > "$SYSTEMD_DIR/spotify-swimmer.service"
+cp "$PROJECT_DIR/systemd/spotify-swimmer.service" "$SYSTEMD_DIR/"
 cp "$PROJECT_DIR/systemd/spotify-swimmer.timer" "$SYSTEMD_DIR/"
 
 # Reload systemd
@@ -85,3 +95,4 @@ echo "Commands:"
 echo "  Run manually:    systemctl --user start spotify-swimmer.service"
 echo "  View logs:       journalctl --user -u spotify-swimmer.service -f"
 echo "  Check timer:     systemctl --user list-timers spotify-swimmer.timer"
+echo "  Run directly:    $INSTALL_DIR/.venv/bin/spotify-swimmer sync"

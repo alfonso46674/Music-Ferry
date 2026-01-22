@@ -4,7 +4,9 @@
 
 set -e
 
-# Start Xvfb for headless browser
+INSTALL_DIR="$HOME/.spotify-swimmer"
+
+# Start Xvfb for headless browser (needed for Spotify)
 Xvfb :99 -screen 0 1920x1080x24 &
 XVFB_PID=$!
 export DISPLAY=:99
@@ -12,11 +14,8 @@ export DISPLAY=:99
 # Give Xvfb time to start
 sleep 1
 
-# Activate virtual environment and run
-cd "$(dirname "$0")/.."
-source .venv/bin/activate
-
-python -m spotify_swimmer.cli "$@"
+# Run the installed CLI
+"$INSTALL_DIR/.venv/bin/spotify-swimmer" "$@"
 EXIT_CODE=$?
 
 # Cleanup

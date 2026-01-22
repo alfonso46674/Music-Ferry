@@ -6,7 +6,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=%h/.spotify-swimmer/bin/sync.sh
+ExecStart=%h/.spotify-swimmer/bin/sync.sh sync
 TimeoutStartSec=3600
 
 [Install]
