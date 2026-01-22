@@ -9,7 +9,6 @@ from spotify_swimmer.spotify_api import SpotifyAPI, Track
 from spotify_swimmer.browser import SpotifyBrowser
 from spotify_swimmer.recorder import AudioRecorder
 from spotify_swimmer.tagger import tag_mp3
-from spotify_swimmer.transfer import TransferManager
 from spotify_swimmer.notify import Notifier, SyncResult, PlaylistResult
 
 
@@ -74,35 +73,20 @@ class Orchestrator:
             if lib_track.id not in api_track_ids:
                 self.library.remove_track_from_playlist(lib_track.id, playlist_id)
 
-    def _check_playlists_for_new_tracks(
-        self, api: SpotifyAPI
-    ) -> dict[str, list[Track]]:
-        """
-        Pre-scan all playlists and return only those with new tracks.
-        Returns a dict mapping playlist_id -> list of new tracks.
-        """
-        playlists_with_new_tracks: dict[str, list[Track]] = {}
+    def _fetch_all_playlists(self, api: SpotifyAPI) -> dict[str, list[Track]]:
+        """Fetch all tracks for all playlists. Returns dict mapping playlist_id -> tracks."""
+        all_playlist_tracks: dict[str, list[Track]] = {}
 
         for playlist in self.config.playlists:
             try:
-                all_tracks = api.get_playlist_tracks(playlist.playlist_id)
-                new_tracks = self._filter_new_tracks(all_tracks)
-
-                if new_tracks:
-                    playlists_with_new_tracks[playlist.playlist_id] = new_tracks
-                    logger.info(
-                        f"Playlist '{playlist.name}': {len(new_tracks)} new tracks "
-                        f"(of {len(all_tracks)} total)"
-                    )
-                else:
-                    logger.info(
-                        f"Playlist '{playlist.name}': fully synced "
-                        f"({len(all_tracks)} tracks)"
-                    )
+                tracks = api.get_playlist_tracks(playlist.playlist_id)
+                all_playlist_tracks[playlist.playlist_id] = tracks
+                logger.debug(f"Fetched {len(tracks)} tracks from '{playlist.name}'")
             except Exception as e:
-                logger.error(f"Failed to check playlist '{playlist.name}': {e}")
+                logger.error(f"Failed to fetch playlist '{playlist.name}': {e}")
+                all_playlist_tracks[playlist.playlist_id] = []
 
-        return playlists_with_new_tracks
+        return all_playlist_tracks
 
     async def run(self) -> SyncResult:
         playlist_results: list[PlaylistResult] = []
@@ -120,84 +104,87 @@ class Orchestrator:
             notify_on_failure=self.config.notifications.notify_on_failure,
         )
 
-        # Pre-check: scan all playlists for new tracks BEFORE starting browser
-        logger.info("Checking playlists for new tracks...")
-        playlists_with_new_tracks = self._check_playlists_for_new_tracks(api)
+        # Fetch all playlist tracks from API
+        logger.info("Fetching playlist data from Spotify...")
+        all_playlist_tracks = self._fetch_all_playlists(api)
 
-        if not playlists_with_new_tracks:
-            logger.info("All playlists are fully synced. Nothing to do.")
-            # Report all playlists as synced with 0 new tracks
+        # Determine which playlists have new tracks
+        playlists_with_new_tracks: dict[str, list[Track]] = {}
+        for playlist in self.config.playlists:
+            all_tracks = all_playlist_tracks.get(playlist.playlist_id, [])
+            new_tracks = self._filter_new_tracks(all_tracks)
+            if new_tracks:
+                playlists_with_new_tracks[playlist.playlist_id] = new_tracks
+                logger.info(
+                    f"Playlist '{playlist.name}': {len(new_tracks)} new tracks "
+                    f"(of {len(all_tracks)} total)"
+                )
+            else:
+                logger.info(
+                    f"Playlist '{playlist.name}': fully synced ({len(all_tracks)} tracks)"
+                )
+
+        # Download new tracks if any exist
+        if playlists_with_new_tracks:
+            total_new = sum(len(tracks) for tracks in playlists_with_new_tracks.values())
+            logger.info(
+                f"Found {total_new} new tracks across "
+                f"{len(playlists_with_new_tracks)} playlists. Starting sync..."
+            )
+
+            try:
+                with AudioRecorder(bitrate=self.config.audio.bitrate) as recorder:
+                    async with SpotifyBrowser(
+                        cookies_dir=self.config.paths.music_dir.parent / "cookies",
+                        audio_sink=recorder.sink_name,
+                    ) as browser:
+                        if not await browser.is_logged_in():
+                            global_error = "Login expired - please re-authenticate"
+                            raise RuntimeError(global_error)
+
+                        for playlist in self.config.playlists:
+                            new_tracks = playlists_with_new_tracks.get(playlist.playlist_id)
+                            if new_tracks:
+                                result = await self._sync_playlist_tracks(
+                                    playlist, new_tracks, browser, recorder
+                                )
+                            else:
+                                result = PlaylistResult(
+                                    name=playlist.name, tracks_synced=0, error=None
+                                )
+                            playlist_results.append(result)
+
+            except RuntimeError as e:
+                global_error = str(e)
+                for playlist in self.config.playlists:
+                    if not any(r.name == playlist.name for r in playlist_results):
+                        playlist_results.append(
+                            PlaylistResult(name=playlist.name, tracks_synced=0, error=str(e))
+                        )
+        else:
+            logger.info("All playlists are fully synced. No downloads needed.")
             for playlist in self.config.playlists:
                 playlist_results.append(
                     PlaylistResult(name=playlist.name, tracks_synced=0, error=None)
                 )
-            result = SyncResult(
-                playlists=playlist_results,
-                transferred=False,
-                global_error=None,
+
+        # Update playlist membership for all playlists
+        logger.info("Updating playlist membership...")
+        for playlist in self.config.playlists:
+            all_tracks = all_playlist_tracks.get(playlist.playlist_id, [])
+            self._update_playlist_membership(
+                playlist.playlist_id, playlist.name, all_tracks
             )
-            # Still notify on success if configured
-            notifier.send(result)
-            return result
 
-        total_new = sum(len(tracks) for tracks in playlists_with_new_tracks.values())
-        logger.info(
-            f"Found {total_new} new tracks across "
-            f"{len(playlists_with_new_tracks)} playlists. Starting sync..."
-        )
+        # Cleanup orphaned tracks
+        orphans_deleted = self._cleanup_orphaned_tracks()
+        if orphans_deleted > 0:
+            logger.info(f"Cleaned up {orphans_deleted} orphaned tracks")
 
-        try:
-            with AudioRecorder(bitrate=self.config.audio.bitrate) as recorder:
-                async with SpotifyBrowser(
-                    cookies_dir=self.config.paths.music_dir.parent / "cookies",
-                    audio_sink=recorder.sink_name,
-                ) as browser:
-                    if not await browser.is_logged_in():
-                        global_error = "Login expired - please re-authenticate"
-                        raise RuntimeError(global_error)
-
-                    for playlist in self.config.playlists:
-                        # Only process playlists that have new tracks
-                        new_tracks = playlists_with_new_tracks.get(
-                            playlist.playlist_id
-                        )
-                        if new_tracks:
-                            result = await self._sync_playlist_tracks(
-                                playlist, new_tracks, browser, recorder
-                            )
-                        else:
-                            # Playlist was already fully synced
-                            result = PlaylistResult(
-                                name=playlist.name, tracks_synced=0, error=None
-                            )
-                        playlist_results.append(result)
-
-        except RuntimeError as e:
-            global_error = str(e)
-            for playlist in self.config.playlists:
-                if not any(r.name == playlist.name for r in playlist_results):
-                    playlist_results.append(
-                        PlaylistResult(name=playlist.name, tracks_synced=0, error=str(e))
-                    )
-
-        transferred = False
-        if self.config.behavior.auto_transfer:
-            try:
-                transfer_manager = TransferManager(
-                    headphones_mount=self.config.paths.headphones_mount,
-                    headphones_music_folder=self.config.paths.headphones_music_folder,
-                )
-                if transfer_manager.is_mounted():
-                    transfer_manager.transfer(self.config.paths.music_dir)
-                    transferred = True
-                else:
-                    logger.warning("Headphones not mounted, skipping transfer")
-            except Exception as e:
-                logger.error(f"Transfer failed: {e}")
-
+        # Never transfer - that's a separate command now
         result = SyncResult(
             playlists=playlist_results,
-            transferred=transferred,
+            transferred=False,
             global_error=global_error,
         )
 
