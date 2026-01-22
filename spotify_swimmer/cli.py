@@ -17,6 +17,29 @@ def setup_logging(verbose: bool = False) -> None:
     )
 
 
+def _add_source_flags(parser: argparse.ArgumentParser) -> None:
+    """Add --spotify and --youtube flags to a subparser."""
+    parser.add_argument(
+        "--spotify",
+        action="store_true",
+        help="Only process Spotify playlists",
+    )
+    parser.add_argument(
+        "--youtube",
+        action="store_true",
+        help="Only process YouTube playlists",
+    )
+
+
+def _resolve_sources(args: argparse.Namespace, config) -> tuple[bool, bool]:
+    """Resolve which sources to process based on flags and config.
+    Returns (sync_spotify, sync_youtube) booleans.
+    """
+    if not args.spotify and not args.youtube:
+        return config.spotify.enabled, config.youtube.enabled
+    return args.spotify, args.youtube
+
+
 def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Download Spotify playlists to MP3 for offline swimming"
@@ -39,16 +62,18 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # sync command
-    subparsers.add_parser(
+    sync_parser = subparsers.add_parser(
         "sync",
         help="Download new tracks and clean up orphans (no transfer)",
     )
+    _add_source_flags(sync_parser)
 
     # transfer command
-    subparsers.add_parser(
+    transfer_parser = subparsers.add_parser(
         "transfer",
         help="Interactive transfer to headphones",
     )
+    _add_source_flags(transfer_parser)
 
     return parser.parse_args(args)
 
