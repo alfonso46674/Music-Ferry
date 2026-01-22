@@ -29,11 +29,32 @@ class LibraryPlaylist:
 class Library:
     VERSION = 1
 
-    def __init__(self, db_path: Path):
+    def __init__(self, db_path: Path, migrate_from: Path | None = None):
         self.db_path = db_path
         self._tracks: dict[str, LibraryTrack] = {}
         self._playlists: dict[str, LibraryPlaylist] = {}
-        self._load()
+
+        if migrate_from and migrate_from.exists() and not db_path.exists():
+            self._migrate_old_format(migrate_from)
+        else:
+            self._load()
+
+    def _migrate_old_format(self, old_path: Path) -> None:
+        """Migrate from old tracks.json format to new library.json format."""
+        with open(old_path) as f:
+            old_data = json.load(f)
+
+        # Old format: {"track_id": "filename.mp3"}
+        for track_id, filename in old_data.items():
+            self._tracks[track_id] = LibraryTrack(
+                id=track_id,
+                filename=filename,
+                title="Unknown",
+                artist="Unknown",
+                playlists=[],  # Will be populated on next sync
+            )
+
+        self.save()
 
     def _load(self) -> None:
         if not self.db_path.exists():

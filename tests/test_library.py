@@ -154,3 +154,38 @@ class TestLibrary:
         orphaned = lib.get_orphaned_tracks()
         assert len(orphaned) == 1
         assert orphaned[0].id == "track2"
+
+    def test_migrate_from_old_format(self, tmp_path: Path):
+        # Create old tracks.json format
+        old_db = tmp_path / "tracks.json"
+        old_db.write_text(json.dumps({
+            "track1": "track1.mp3",
+            "track2": "track2.mp3",
+        }))
+
+        lib = Library(tmp_path / "library.json", migrate_from=old_db)
+
+        # Old tracks should be imported with empty playlists (orphaned)
+        assert lib.is_downloaded("track1")
+        assert lib.is_downloaded("track2")
+        track = lib.get_track("track1")
+        assert track.filename == "track1.mp3"
+        # Title/artist unknown from old format
+        assert track.title == "Unknown"
+        assert track.playlists == []  # Will be populated on next sync
+
+    def test_no_migration_if_library_exists(self, tmp_path: Path):
+        # Create old tracks.json
+        old_db = tmp_path / "tracks.json"
+        old_db.write_text(json.dumps({"old_track": "old.mp3"}))
+
+        # Create existing library.json
+        lib_path = tmp_path / "library.json"
+        lib1 = Library(lib_path)
+        lib1.add_track("new_track", "new.mp3", "New Song", "Artist", "playlist1")
+
+        # Open with migrate_from - should NOT migrate since library exists
+        lib2 = Library(lib_path, migrate_from=old_db)
+
+        assert lib2.is_downloaded("new_track")
+        assert not lib2.is_downloaded("old_track")
