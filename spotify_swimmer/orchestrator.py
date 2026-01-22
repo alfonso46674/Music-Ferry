@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 
 from spotify_swimmer.config import Config, PlaylistConfig
-from spotify_swimmer.tracks_db import TracksDB
+from spotify_swimmer.library import Library
 from spotify_swimmer.spotify_api import SpotifyAPI, Track
 from spotify_swimmer.browser import SpotifyBrowser
 from spotify_swimmer.recorder import AudioRecorder
@@ -19,13 +19,18 @@ logger = logging.getLogger(__name__)
 class Orchestrator:
     def __init__(self, config: Config):
         self.config = config
-        self.tracks_db = TracksDB(config.paths.music_dir.parent / "tracks.json")
+
+        # Setup library with migration support from old tracks.json
+        library_path = config.paths.music_dir.parent / "library.json"
+        old_tracks_path = config.paths.music_dir.parent / "tracks.json"
+        self.library = Library(library_path, migrate_from=old_tracks_path)
+
         config.paths.music_dir.mkdir(parents=True, exist_ok=True)
 
     def _filter_new_tracks(self, tracks: list[Track]) -> list[Track]:
         if not self.config.behavior.skip_existing:
             return tracks
-        return [t for t in tracks if not self.tracks_db.is_downloaded(t.id)]
+        return [t for t in tracks if not self.library.is_downloaded(t.id)]
 
     def _check_playlists_for_new_tracks(
         self, api: SpotifyAPI
@@ -210,6 +215,9 @@ class Orchestrator:
         await browser.pause()
 
         tag_mp3(output_path, track)
-        self.tracks_db.add_track(track.id, f"{track.id}.mp3")
+        # Note: playlist_id will be added by _update_playlist_membership
+        self.library.add_track(
+            track.id, f"{track.id}.mp3", track.name, track.artist_string, ""
+        )
 
         logger.info(f"Completed: {track.name}")

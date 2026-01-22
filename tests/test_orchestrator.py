@@ -46,7 +46,9 @@ def sample_config(tmp_path: Path) -> Config:
 class TestOrchestrator:
     def test_filter_new_tracks(self, sample_config: Config, tmp_path: Path):
         orchestrator = Orchestrator(sample_config)
-        orchestrator.tracks_db.add_track("existing123", "existing123.mp3")
+        orchestrator.library.add_track(
+            "existing123", "existing123.mp3", "Old Song", "A", "playlist1"
+        )
 
         tracks = [
             Track(id="existing123", name="Old Song", artists=["A"], album="B", duration_ms=180000, album_art_url=None),
@@ -57,6 +59,21 @@ class TestOrchestrator:
 
         assert len(new_tracks) == 1
         assert new_tracks[0].id == "new456"
+
+    def test_orchestrator_uses_library(self, sample_config: Config, tmp_path: Path):
+        from spotify_swimmer.library import Library
+        orchestrator = Orchestrator(sample_config)
+        assert isinstance(orchestrator.library, Library)
+
+    def test_orchestrator_migrates_old_db(self, sample_config: Config, tmp_path: Path):
+        import json
+        # Create old tracks.json
+        old_db = sample_config.paths.music_dir.parent / "tracks.json"
+        old_db.parent.mkdir(parents=True, exist_ok=True)
+        old_db.write_text(json.dumps({"track1": "track1.mp3"}))
+
+        orchestrator = Orchestrator(sample_config)
+        assert orchestrator.library.is_downloaded("track1")
 
     @pytest.mark.asyncio
     @patch("spotify_swimmer.orchestrator.tag_mp3")
