@@ -52,6 +52,28 @@ class Orchestrator:
 
         return deleted_count
 
+    def _update_playlist_membership(
+        self,
+        playlist_id: str,
+        playlist_name: str,
+        api_tracks: list[Track],
+    ) -> None:
+        """Update library to reflect current playlist membership from API."""
+        api_track_ids = {t.id for t in api_tracks}
+
+        # Update playlist metadata
+        self.library.update_playlist(playlist_id, playlist_name, len(api_tracks))
+
+        # Add playlist to tracks that are in API response and already downloaded
+        for track in api_tracks:
+            if self.library.is_downloaded(track.id):
+                self.library.add_track_to_playlist(track.id, playlist_id)
+
+        # Remove playlist from tracks no longer in API response
+        for lib_track in self.library.get_tracks_for_playlist(playlist_id):
+            if lib_track.id not in api_track_ids:
+                self.library.remove_track_from_playlist(lib_track.id, playlist_id)
+
     def _check_playlists_for_new_tracks(
         self, api: SpotifyAPI
     ) -> dict[str, list[Track]]:

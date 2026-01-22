@@ -112,6 +112,54 @@ class TestOrchestrator:
         assert mp3_path.exists()
         assert orchestrator.library.is_downloaded("active1")
 
+    def test_update_playlist_membership_adds_new_playlist(self, sample_config: Config, tmp_path: Path):
+        orchestrator = Orchestrator(sample_config)
+
+        # Create a track that's in library for playlist1
+        orchestrator.library.add_track(
+            "track1", "track1.mp3", "Song 1", "Artist", "playlist1"
+        )
+
+        # Simulate track appearing in playlist2 as well (from API)
+        mock_tracks = [
+            Track(id="track1", name="Song 1", artists=["Artist"],
+                  album="Album", duration_ms=180000, album_art_url=None)
+        ]
+
+        orchestrator._update_playlist_membership("playlist2", "Playlist 2", mock_tracks)
+
+        track = orchestrator.library.get_track("track1")
+        assert "playlist1" in track.playlists
+        assert "playlist2" in track.playlists
+
+    def test_update_playlist_membership_removes_old_tracks(self, sample_config: Config, tmp_path: Path):
+        orchestrator = Orchestrator(sample_config)
+
+        # Create tracks in playlist1
+        orchestrator.library.add_track(
+            "track1", "track1.mp3", "Song 1", "Artist", "playlist1"
+        )
+        orchestrator.library.add_track(
+            "track2", "track2.mp3", "Song 2", "Artist", "playlist1"
+        )
+
+        # API now only has track1 in playlist1 (track2 was removed)
+        mock_tracks = [
+            Track(id="track1", name="Song 1", artists=["Artist"],
+                  album="Album", duration_ms=180000, album_art_url=None)
+        ]
+
+        orchestrator._update_playlist_membership("playlist1", "Playlist 1", mock_tracks)
+
+        # track1 should still be in playlist1
+        track1 = orchestrator.library.get_track("track1")
+        assert "playlist1" in track1.playlists
+
+        # track2 should no longer be in playlist1 (now orphaned)
+        track2 = orchestrator.library.get_track("track2")
+        assert "playlist1" not in track2.playlists
+        assert track2.is_orphaned
+
     @pytest.mark.asyncio
     @patch("spotify_swimmer.orchestrator.tag_mp3")
     @patch("spotify_swimmer.orchestrator.asyncio.sleep", new_callable=AsyncMock)
