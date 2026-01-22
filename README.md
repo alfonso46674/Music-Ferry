@@ -1,5 +1,7 @@
 # Spotify Swimmer
 
+[![CI](https://github.com/yourusername/spotify-swimmer/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/spotify-swimmer/actions/workflows/ci.yml)
+
 Download Spotify and YouTube playlists to MP3 files for offline listening on waterproof headphones while swimming.
 
 ## How It Works
@@ -64,6 +66,21 @@ playwright install chromium
 
 ```bash
 ./scripts/uninstall.sh
+```
+
+### Updating
+
+After pulling new changes or a new release:
+
+```bash
+# If installed via pipx
+pipx install --force .
+
+# If installed via pip --user
+pip install --user --upgrade .
+
+# If installed in development mode (editable install)
+# Changes apply immediately, no reinstall needed
 ```
 
 ## Configuration
@@ -275,6 +292,29 @@ pytest tests/test_config.py -v
 # Run with coverage
 pytest --cov=spotify_swimmer
 ```
+
+### Releasing a New Version
+
+1. Update version in `pyproject.toml`
+2. Commit and push changes
+3. Create and push a tag:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+GitHub Actions will automatically:
+- Run tests
+- Build the package
+- Create a GitHub Release with artifacts
+
+### CI/CD
+
+This project uses GitHub Actions for continuous integration:
+
+- **CI workflow**: Runs tests on every push/PR (Python 3.11 & 3.12)
+- **Release workflow**: Creates GitHub releases when tags are pushed
 
 ## How Recording Works
 
