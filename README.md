@@ -4,15 +4,14 @@ Download Spotify playlists to MP3 files for offline listening on waterproof head
 
 ## How It Works
 
-1. **Fetches playlist metadata** from Spotify API (track names, durations, album art)
-2. **Plays each track** via browser automation (Spotify Web Player)
-3. **Records the audio** from a virtual PipeWire sink using FFmpeg
-4. **Tags MP3 files** with ID3 metadata (title, artist, album, cover art)
-5. **Transfers to headphones** via USB mass storage using rsync
-6. **Runs automatically** at 3am via systemd timer
-7. **Sends notifications** via Ntfy on success/failure
-
-This approach records audio during playback rather than downloading directly, which avoids violating Spotify's terms of service.
+1. **Checks for new tracks** - compares playlist metadata against local database
+2. **Skips fully-synced playlists** - only starts browser if there are new tracks
+3. **Plays each new track** via browser automation (Spotify Web Player)
+4. **Records the audio** from a virtual PipeWire sink using FFmpeg
+5. **Tags MP3 files** with ID3 metadata (title, artist, album, cover art)
+6. **Transfers to headphones** via USB mass storage using rsync
+7. **Runs automatically** between 5-8am via systemd timer (randomized)
+8. **Sends notifications** via Ntfy on success/failure
 
 ## Requirements
 
@@ -115,7 +114,7 @@ The first time you run, you'll need to log into Spotify:
 
 ### Automatic Scheduling
 
-The installer sets up a systemd timer to run at 3am daily:
+The installer sets up a systemd timer to run daily between 5-8am (randomized):
 
 ```bash
 # Enable the timer
@@ -149,7 +148,7 @@ spotify-swimmer/
 │   ├── notify.py        # Ntfy notifications
 │   ├── orchestrator.py  # Main sync workflow
 │   └── cli.py           # Command-line interface
-├── tests/               # Test suite (38 tests)
+├── tests/               # Test suite (39 tests)
 ├── bin/
 │   └── sync.sh          # Systemd entry point
 ├── systemd/
@@ -175,13 +174,18 @@ pip install -e ".[dev]"
 
 ## How Recording Works
 
-1. Creates a PipeWire virtual sink (`spotify-swimmer-capture`)
-2. Launches headless Chromium with audio routed to the virtual sink
-3. Navigates to each track on Spotify Web Player
-4. Starts FFmpeg recording from the sink's monitor source
-5. Waits for the track duration (from Spotify API metadata)
-6. Stops recording and moves to next track
-7. Tags the MP3 with metadata and album art
+1. Fetches playlist metadata from Spotify API
+2. Compares against local tracks database to find new tracks
+3. If no new tracks exist, exits early without starting browser
+4. Creates a PipeWire virtual sink with generic name
+5. Launches headless Chromium with stealth features to avoid detection
+6. Routes browser audio to the virtual sink
+7. For each new track:
+   - Navigates to the track on Spotify Web Player
+   - Adds random delays to mimic human behavior
+   - Starts FFmpeg recording from the sink's monitor source
+   - Waits for the track duration (from API metadata)
+   - Stops recording and tags with ID3 metadata
 
 ## Troubleshooting
 

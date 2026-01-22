@@ -3,7 +3,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from spotify_swimmer.config import Config
+from spotify_swimmer.config import Config, PlaylistConfig
 from spotify_swimmer.tracks_db import TracksDB
 from spotify_swimmer.spotify_api import SpotifyAPI, Track
 from spotify_swimmer.browser import SpotifyBrowser
@@ -27,6 +27,36 @@ class Orchestrator:
             return tracks
         return [t for t in tracks if not self.tracks_db.is_downloaded(t.id)]
 
+    def _check_playlists_for_new_tracks(
+        self, api: SpotifyAPI
+    ) -> dict[str, list[Track]]:
+        """
+        Pre-scan all playlists and return only those with new tracks.
+        Returns a dict mapping playlist_id -> list of new tracks.
+        """
+        playlists_with_new_tracks: dict[str, list[Track]] = {}
+
+        for playlist in self.config.playlists:
+            try:
+                all_tracks = api.get_playlist_tracks(playlist.playlist_id)
+                new_tracks = self._filter_new_tracks(all_tracks)
+
+                if new_tracks:
+                    playlists_with_new_tracks[playlist.playlist_id] = new_tracks
+                    logger.info(
+                        f"Playlist '{playlist.name}': {len(new_tracks)} new tracks "
+                        f"(of {len(all_tracks)} total)"
+                    )
+                else:
+                    logger.info(
+                        f"Playlist '{playlist.name}': fully synced "
+                        f"({len(all_tracks)} tracks)"
+                    )
+            except Exception as e:
+                logger.error(f"Failed to check playlist '{playlist.name}': {e}")
+
+        return playlists_with_new_tracks
+
     async def run(self) -> SyncResult:
         playlist_results: list[PlaylistResult] = []
         global_error: str | None = None
@@ -43,6 +73,32 @@ class Orchestrator:
             notify_on_failure=self.config.notifications.notify_on_failure,
         )
 
+        # Pre-check: scan all playlists for new tracks BEFORE starting browser
+        logger.info("Checking playlists for new tracks...")
+        playlists_with_new_tracks = self._check_playlists_for_new_tracks(api)
+
+        if not playlists_with_new_tracks:
+            logger.info("All playlists are fully synced. Nothing to do.")
+            # Report all playlists as synced with 0 new tracks
+            for playlist in self.config.playlists:
+                playlist_results.append(
+                    PlaylistResult(name=playlist.name, tracks_synced=0, error=None)
+                )
+            result = SyncResult(
+                playlists=playlist_results,
+                transferred=False,
+                global_error=None,
+            )
+            # Still notify on success if configured
+            notifier.send(result)
+            return result
+
+        total_new = sum(len(tracks) for tracks in playlists_with_new_tracks.values())
+        logger.info(
+            f"Found {total_new} new tracks across "
+            f"{len(playlists_with_new_tracks)} playlists. Starting sync..."
+        )
+
         try:
             with AudioRecorder(bitrate=self.config.audio.bitrate) as recorder:
                 async with SpotifyBrowser(
@@ -54,9 +110,19 @@ class Orchestrator:
                         raise RuntimeError(global_error)
 
                     for playlist in self.config.playlists:
-                        result = await self._sync_playlist(
-                            playlist, api, browser, recorder
+                        # Only process playlists that have new tracks
+                        new_tracks = playlists_with_new_tracks.get(
+                            playlist.playlist_id
                         )
+                        if new_tracks:
+                            result = await self._sync_playlist_tracks(
+                                playlist, new_tracks, browser, recorder
+                            )
+                        else:
+                            # Playlist was already fully synced
+                            result = PlaylistResult(
+                                name=playlist.name, tracks_synced=0, error=None
+                            )
                         playlist_results.append(result)
 
         except RuntimeError as e:
@@ -91,21 +157,19 @@ class Orchestrator:
         notifier.send(result)
         return result
 
-    async def _sync_playlist(
+    async def _sync_playlist_tracks(
         self,
-        playlist,
-        api: SpotifyAPI,
+        playlist: PlaylistConfig,
+        tracks: list[Track],
         browser: SpotifyBrowser,
         recorder: AudioRecorder,
     ) -> PlaylistResult:
+        """Sync pre-fetched tracks for a playlist."""
         try:
-            tracks = api.get_playlist_tracks(playlist.playlist_id)
-            new_tracks = self._filter_new_tracks(tracks)
-
-            logger.info(f"Playlist {playlist.name}: {len(new_tracks)} new tracks")
+            logger.info(f"Playlist '{playlist.name}': syncing {len(tracks)} tracks")
 
             synced_count = 0
-            for track in new_tracks:
+            for track in tracks:
                 try:
                     await self._record_track(track, browser, recorder)
                     synced_count += 1

@@ -5,13 +5,18 @@ import asyncio
 
 import pytest
 
-from spotify_swimmer.recorder import AudioRecorder
+from spotify_swimmer.recorder import AudioRecorder, SINK_NAMES
 
 
 class TestAudioRecorder:
     def test_sink_name_generation(self):
         recorder = AudioRecorder(bitrate=192)
-        assert recorder.sink_name == "spotify-swimmer-capture"
+        # Sink name should be from the predefined list
+        assert recorder.sink_name in SINK_NAMES
+
+    def test_custom_sink_name(self):
+        recorder = AudioRecorder(bitrate=192, sink_name="custom_sink")
+        assert recorder.sink_name == "custom_sink"
 
     @patch("spotify_swimmer.recorder.subprocess.run")
     def test_create_virtual_sink(self, mock_run):

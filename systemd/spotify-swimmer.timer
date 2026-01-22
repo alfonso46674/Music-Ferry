@@ -1,9 +1,11 @@
 # systemd/spotify-swimmer.timer
 [Unit]
-Description=Run Spotify Swimmer daily at 3am
+Description=Run Spotify Swimmer daily
 
 [Timer]
-OnCalendar=*-*-* 03:00:00
+# Base time at 5am, with up to 3 hours of random delay (runs between 5am-8am)
+OnCalendar=*-*-* 05:00:00
+RandomizedDelaySec=3h
 Persistent=true
 
 [Install]

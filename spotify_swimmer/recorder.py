@@ -1,12 +1,33 @@
 # spotify_swimmer/recorder.py
+import random
 import subprocess
 from pathlib import Path
 
 
+# Generic sink names that look like standard audio devices
+SINK_NAMES = [
+    "alsa_output.virtual",
+    "pulse_sink_0",
+    "audio_loopback",
+    "virtual_output",
+    "monitor_sink",
+]
+
+# Generic descriptions that look like standard audio devices
+SINK_DESCRIPTIONS = [
+    "Built-in Audio Analog Stereo",
+    "Virtual Output Device",
+    "Audio Adapter",
+    "Digital Audio Output",
+]
+
+
 class AudioRecorder:
-    def __init__(self, bitrate: int = 192):
+    def __init__(self, bitrate: int = 192, sink_name: str | None = None):
         self.bitrate = bitrate
-        self.sink_name = "spotify-swimmer-capture"
+        # Use provided sink name or pick a random generic one
+        self.sink_name = sink_name or random.choice(SINK_NAMES)
+        self._sink_description = random.choice(SINK_DESCRIPTIONS)
         self._module_id: int | None = None
         self._ffmpeg_process: subprocess.Popen | None = None
 
@@ -17,7 +38,7 @@ class AudioRecorder:
                 "load-module",
                 "module-null-sink",
                 f"sink_name={self.sink_name}",
-                f"sink_properties=device.description={self.sink_name}",
+                f"sink_properties=device.description={self._sink_description}",
             ],
             capture_output=True,
             text=True,
