@@ -10,6 +10,7 @@ from spotify_swimmer.browser import SpotifyBrowser
 from spotify_swimmer.recorder import AudioRecorder
 from spotify_swimmer.tagger import tag_mp3
 from spotify_swimmer.notify import Notifier, SyncResult, PlaylistResult
+from spotify_swimmer.youtube import YouTubeDownloader
 
 
 logger = logging.getLogger(__name__)
@@ -21,17 +22,40 @@ class Orchestrator:
     def __init__(self, config: Config):
         self.config = config
 
-        # Setup library with migration support from old tracks.json
-        library_path = config.paths.music_dir.parent / "library.json"
+        # Setup directories for each source
+        spotify_base = config.paths.music_dir / "spotify"
+        youtube_base = config.paths.music_dir / "youtube"
+
+        spotify_base.mkdir(parents=True, exist_ok=True)
+        youtube_base.mkdir(parents=True, exist_ok=True)
+        (spotify_base / "music").mkdir(exist_ok=True)
+        (youtube_base / "music").mkdir(exist_ok=True)
+
+        # Setup libraries with migration support
+        old_library = config.paths.music_dir.parent / "library.json"
         old_tracks_path = config.paths.music_dir.parent / "tracks.json"
-        self.library = Library(library_path, migrate_from=old_tracks_path)
 
-        config.paths.music_dir.mkdir(parents=True, exist_ok=True)
+        # Migrate from old library.json or tracks.json if exists
+        migrate_from = None
+        if old_library.exists():
+            migrate_from = old_library
+        elif old_tracks_path.exists():
+            migrate_from = old_tracks_path
 
-    def _filter_new_tracks(self, tracks: list[Track]) -> list[Track]:
+        self.spotify_library = Library(
+            spotify_base / "library.json",
+            migrate_from=migrate_from,
+        )
+        self.youtube_library = Library(youtube_base / "library.json")
+
+        # Paths for music storage
+        self.spotify_music_dir = spotify_base / "music"
+        self.youtube_music_dir = youtube_base / "music"
+
+    def _filter_new_tracks(self, tracks: list[Track], library: Library) -> list[Track]:
         if not self.config.behavior.skip_existing:
             return tracks
-        return [t for t in tracks if not self.library.is_downloaded(t.id)]
+        return [t for t in tracks if not library.is_downloaded(t.id)]
 
     @staticmethod
     def _select_playback_mode(new_count: int, total_count: int) -> str:
@@ -47,13 +71,13 @@ class Orchestrator:
             return "playlist"
         return "individual"
 
-    def _cleanup_orphaned_tracks(self) -> int:
+    def _cleanup_orphaned_tracks(self, library: Library, music_dir: Path) -> int:
         """Delete orphaned tracks from disk and library. Returns count deleted."""
-        orphaned = self.library.get_orphaned_tracks()
+        orphaned = library.get_orphaned_tracks()
         deleted_count = 0
 
         for track in orphaned:
-            mp3_path = self.config.paths.music_dir / track.filename
+            mp3_path = music_dir / track.filename
 
             # Delete MP3 file if exists
             if mp3_path.exists():
@@ -61,7 +85,7 @@ class Orchestrator:
                 logger.info(f"Deleted orphaned file: {track.filename}")
 
             # Remove from library
-            self.library.delete_track(track.id)
+            library.delete_track(track.id)
             deleted_count += 1
             logger.info(f"Removed orphaned track: {track.title} by {track.artist}")
 
@@ -72,22 +96,23 @@ class Orchestrator:
         playlist_id: str,
         playlist_name: str,
         api_tracks: list[Track],
+        library: Library,
     ) -> None:
         """Update library to reflect current playlist membership from API."""
         api_track_ids = {t.id for t in api_tracks}
 
         # Update playlist metadata
-        self.library.update_playlist(playlist_id, playlist_name, len(api_tracks))
+        library.update_playlist(playlist_id, playlist_name, len(api_tracks))
 
         # Add playlist to tracks that are in API response and already downloaded
         for track in api_tracks:
-            if self.library.is_downloaded(track.id):
-                self.library.add_track_to_playlist(track.id, playlist_id)
+            if library.is_downloaded(track.id):
+                library.add_track_to_playlist(track.id, playlist_id)
 
         # Remove playlist from tracks no longer in API response
-        for lib_track in self.library.get_tracks_for_playlist(playlist_id):
+        for lib_track in library.get_tracks_for_playlist(playlist_id):
             if lib_track.id not in api_track_ids:
-                self.library.remove_track_from_playlist(lib_track.id, playlist_id)
+                library.remove_track_from_playlist(lib_track.id, playlist_id)
 
     def _fetch_all_playlists(self, api: SpotifyAPI) -> dict[str, list[Track]]:
         """Fetch all tracks for all playlists. Returns dict mapping playlist_id -> tracks."""
@@ -104,20 +129,55 @@ class Orchestrator:
 
         return all_playlist_tracks
 
-    async def run(self) -> SyncResult:
+    async def run(
+        self,
+        sync_spotify: bool = True,
+        sync_youtube: bool = True,
+    ) -> SyncResult:
+        """Run sync for selected sources."""
         playlist_results: list[PlaylistResult] = []
         global_error: str | None = None
-
-        api = SpotifyAPI(
-            client_id=self.config.spotify.client_id,
-            client_secret=self.config.spotify.client_secret,
-        )
 
         notifier = Notifier(
             ntfy_server=self.config.notifications.ntfy_server,
             ntfy_topic=self.config.notifications.ntfy_topic,
             notify_on_success=self.config.notifications.notify_on_success,
             notify_on_failure=self.config.notifications.notify_on_failure,
+        )
+
+        try:
+            if sync_spotify and self.config.spotify.enabled:
+                spotify_results = await self._sync_spotify()
+                playlist_results.extend(spotify_results)
+
+            if sync_youtube and self.config.youtube.enabled:
+                youtube_results = await self._sync_youtube()
+                playlist_results.extend(youtube_results)
+
+        except Exception as e:
+            global_error = str(e)
+
+        # Never transfer - that's a separate command now
+        result = SyncResult(
+            playlists=playlist_results,
+            transferred=False,
+            global_error=global_error,
+        )
+
+        notifier.send(result)
+        return result
+
+    async def _sync_spotify(self) -> list[PlaylistResult]:
+        """Sync Spotify playlists using browser recording."""
+        playlist_results: list[PlaylistResult] = []
+
+        if not self.config.spotify.playlists:
+            logger.info("No Spotify playlists configured")
+            return playlist_results
+
+        api = SpotifyAPI(
+            client_id=self.config.spotify.client_id,
+            client_secret=self.config.spotify.client_secret,
         )
 
         # Fetch all playlist tracks from API
@@ -128,7 +188,7 @@ class Orchestrator:
         playlists_with_new_tracks: dict[str, list[Track]] = {}
         for playlist in self.config.spotify.playlists:
             all_tracks = all_playlist_tracks.get(playlist.playlist_id, [])
-            new_tracks = self._filter_new_tracks(all_tracks)
+            new_tracks = self._filter_new_tracks(all_tracks, self.spotify_library)
             if new_tracks:
                 playlists_with_new_tracks[playlist.playlist_id] = new_tracks
                 logger.info(
@@ -155,8 +215,7 @@ class Orchestrator:
                         audio_sink=recorder.sink_name,
                     ) as browser:
                         if not await browser.is_logged_in():
-                            global_error = "Login expired - please re-authenticate"
-                            raise RuntimeError(global_error)
+                            raise RuntimeError("Login expired - please re-authenticate")
 
                         for playlist in self.config.spotify.playlists:
                             new_tracks = playlists_with_new_tracks.get(playlist.playlist_id)
@@ -172,41 +231,99 @@ class Orchestrator:
                             playlist_results.append(result)
 
             except RuntimeError as e:
-                global_error = str(e)
                 for playlist in self.config.spotify.playlists:
                     if not any(r.name == playlist.name for r in playlist_results):
                         playlist_results.append(
                             PlaylistResult(name=playlist.name, tracks_synced=0, error=str(e))
                         )
         else:
-            logger.info("All playlists are fully synced. No downloads needed.")
+            logger.info("All Spotify playlists are fully synced. No downloads needed.")
             for playlist in self.config.spotify.playlists:
                 playlist_results.append(
                     PlaylistResult(name=playlist.name, tracks_synced=0, error=None)
                 )
 
         # Update playlist membership for all playlists
-        logger.info("Updating playlist membership...")
+        logger.info("Updating Spotify playlist membership...")
         for playlist in self.config.spotify.playlists:
             all_tracks = all_playlist_tracks.get(playlist.playlist_id, [])
             self._update_playlist_membership(
-                playlist.playlist_id, playlist.name, all_tracks
+                playlist.playlist_id, playlist.name, all_tracks, self.spotify_library
             )
 
         # Cleanup orphaned tracks
-        orphans_deleted = self._cleanup_orphaned_tracks()
+        orphans_deleted = self._cleanup_orphaned_tracks(
+            self.spotify_library, self.spotify_music_dir
+        )
         if orphans_deleted > 0:
-            logger.info(f"Cleaned up {orphans_deleted} orphaned tracks")
+            logger.info(f"Cleaned up {orphans_deleted} orphaned Spotify tracks")
 
-        # Never transfer - that's a separate command now
-        result = SyncResult(
-            playlists=playlist_results,
-            transferred=False,
-            global_error=global_error,
+        return playlist_results
+
+    async def _sync_youtube(self) -> list[PlaylistResult]:
+        """Sync YouTube playlists using yt-dlp."""
+        playlist_results: list[PlaylistResult] = []
+
+        if not self.config.youtube.playlists:
+            logger.info("No YouTube playlists configured")
+            return playlist_results
+
+        downloader = YouTubeDownloader(
+            output_dir=self.youtube_music_dir,
+            bitrate=self.config.audio.bitrate,
         )
 
-        notifier.send(result)
-        return result
+        for playlist in self.config.youtube.playlists:
+            try:
+                logger.info(f"Fetching YouTube playlist: {playlist.name}")
+                all_tracks = downloader.get_playlist_tracks(
+                    playlist.url, playlist.name
+                )
+
+                new_tracks = self._filter_new_tracks(all_tracks, self.youtube_library)
+
+                if new_tracks:
+                    logger.info(f"YouTube '{playlist.name}': {len(new_tracks)} new tracks")
+                    downloaded = downloader.download_tracks(new_tracks)
+
+                    # Add downloaded tracks to library
+                    for track in new_tracks[:downloaded]:
+                        self.youtube_library.add_track(
+                            track.id,
+                            f"{track.id}.mp3",
+                            track.name,
+                            track.artist_string,
+                            playlist.playlist_id,
+                        )
+
+                    playlist_results.append(
+                        PlaylistResult(name=playlist.name, tracks_synced=downloaded, error=None)
+                    )
+                else:
+                    logger.info(f"YouTube '{playlist.name}': fully synced")
+                    playlist_results.append(
+                        PlaylistResult(name=playlist.name, tracks_synced=0, error=None)
+                    )
+
+                # Update playlist membership
+                self._update_playlist_membership(
+                    playlist.playlist_id, playlist.name, all_tracks, self.youtube_library
+                )
+
+            except Exception as e:
+                logger.error(f"Failed to sync YouTube playlist: {e}")
+                playlist_results.append(
+                    PlaylistResult(name=playlist.name, tracks_synced=0, error=str(e))
+                )
+
+        # Cleanup orphaned tracks
+        orphans_deleted = self._cleanup_orphaned_tracks(
+            self.youtube_library, self.youtube_music_dir
+        )
+        if orphans_deleted > 0:
+            logger.info(f"Cleaned up {orphans_deleted} orphaned YouTube tracks")
+
+        return playlist_results
 
     async def _sync_playlist_tracks(
         self,
@@ -262,7 +379,7 @@ class Orchestrator:
         browser: SpotifyBrowser,
         recorder: AudioRecorder,
     ) -> None:
-        output_path = self.config.paths.music_dir / f"{track.id}.mp3"
+        output_path = self.spotify_music_dir / f"{track.id}.mp3"
 
         logger.info(f"Recording: {track.name} by {track.artist_string}")
 
@@ -277,7 +394,7 @@ class Orchestrator:
 
         tag_mp3(output_path, track)
         # Note: playlist_id will be added by _update_playlist_membership
-        self.library.add_track(
+        self.spotify_library.add_track(
             track.id, f"{track.id}.mp3", track.name, track.artist_string, ""
         )
 
@@ -347,14 +464,14 @@ class Orchestrator:
         recorder: AudioRecorder,
     ) -> None:
         """Record the currently playing track."""
-        output_path = self.config.paths.music_dir / f"{track.id}.mp3"
+        output_path = self.spotify_music_dir / f"{track.id}.mp3"
 
         recorder.start_recording(output_path)
         await asyncio.sleep(track.duration_seconds + 2)
         recorder.stop_recording()
 
         tag_mp3(output_path, track)
-        self.library.add_track(
+        self.spotify_library.add_track(
             track.id, f"{track.id}.mp3", track.name, track.artist_string, ""
         )
 
