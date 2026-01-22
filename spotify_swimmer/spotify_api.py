@@ -13,6 +13,7 @@ class Track:
     album: str
     duration_ms: int
     album_art_url: str | None
+    source: str = "spotify"
 
     @property
     def duration_seconds(self) -> int:
