@@ -7,14 +7,18 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 DATA_DIR="$HOME/.spotify-swimmer"
-SYSTEMD_DIR="$HOME/.config/systemd/user"
 
 echo "Installing Spotify Swimmer..."
 
-# Check for pipx (preferred) or pip
-if command -v pipx &> /dev/null; then
+# Detect if we're in a virtual environment
+if [ -n "$VIRTUAL_ENV" ]; then
+    echo "Detected virtual environment: $VIRTUAL_ENV"
+    echo "Installing into venv..."
+    pip install "$PROJECT_DIR"
+    INSTALL_METHOD="venv"
+elif command -v pipx &> /dev/null; then
     echo "Installing with pipx..."
-    pipx install "$PROJECT_DIR"
+    pipx install "$PROJECT_DIR" || pipx install --force "$PROJECT_DIR"
     INSTALL_METHOD="pipx"
 elif command -v pip &> /dev/null; then
     echo "Installing with pip (--user)..."
@@ -27,9 +31,12 @@ fi
 
 # Verify installation
 if ! command -v spotify-swimmer &> /dev/null; then
+    echo ""
     echo "Warning: spotify-swimmer not found in PATH"
-    echo "You may need to add ~/.local/bin to your PATH"
-    echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+    if [ "$INSTALL_METHOD" = "pip" ]; then
+        echo "You may need to add ~/.local/bin to your PATH:"
+        echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+    fi
 fi
 
 # Create data directories
@@ -82,7 +89,7 @@ fi
 echo "$INSTALL_METHOD" > "$DATA_DIR/.install-method"
 
 echo ""
-echo "Installation complete!"
+echo "Installation complete! (method: $INSTALL_METHOD)"
 echo ""
 echo "Next steps:"
 echo "1. Edit config: $DATA_DIR/config.yaml"
