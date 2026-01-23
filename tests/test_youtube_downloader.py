@@ -3,8 +3,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from spotify_swimmer.youtube.downloader import YouTubeDownloader
-from spotify_swimmer.spotify_api import Track
+from music_ferry.youtube.downloader import YouTubeDownloader
+from music_ferry.spotify_api import Track
 
 
 class TestYouTubeDownloader:
@@ -17,7 +17,7 @@ class TestYouTubeDownloader:
         downloader = YouTubeDownloader(output_dir=output_dir, bitrate=192)
         assert output_dir.exists()
 
-    @patch("spotify_swimmer.youtube.downloader.yt_dlp.YoutubeDL")
+    @patch("music_ferry.youtube.downloader.yt_dlp.YoutubeDL")
     def test_get_playlist_tracks_returns_tracks(self, mock_ydl_class, downloader):
         mock_ydl = MagicMock()
         mock_ydl_class.return_value.__enter__ = MagicMock(return_value=mock_ydl)
@@ -56,7 +56,7 @@ class TestYouTubeDownloader:
         assert tracks[0].duration_ms == 213000
         assert tracks[0].source == "youtube"
 
-    @patch("spotify_swimmer.youtube.downloader.yt_dlp.YoutubeDL")
+    @patch("music_ferry.youtube.downloader.yt_dlp.YoutubeDL")
     def test_download_track_calls_ytdlp(self, mock_ydl_class, downloader, tmp_path):
         mock_ydl = MagicMock()
         mock_ydl_class.return_value.__enter__ = MagicMock(return_value=mock_ydl)
@@ -77,8 +77,8 @@ class TestYouTubeDownloader:
         mock_ydl.download.assert_called_once()
         assert result == downloader.output_dir / "dQw4w9WgXcQ.mp3"
 
-    @patch("spotify_swimmer.youtube.downloader.time.sleep")
-    @patch("spotify_swimmer.youtube.downloader.random.uniform")
+    @patch("music_ferry.youtube.downloader.time.sleep")
+    @patch("music_ferry.youtube.downloader.random.uniform")
     def test_download_tracks_with_delay(self, mock_random, mock_sleep, downloader):
         mock_random.return_value = 10.0
 
@@ -114,7 +114,7 @@ class TestYouTubeDownloader:
             return Path("/fake.mp3")
 
         with patch.object(downloader, "download_track", side_effect=mock_download):
-            with patch("spotify_swimmer.youtube.downloader.time.sleep"):
+            with patch("music_ferry.youtube.downloader.time.sleep"):
                 downloaded = downloader.download_tracks(tracks)
 
         assert len(downloaded) == 1  # Only second track succeeded

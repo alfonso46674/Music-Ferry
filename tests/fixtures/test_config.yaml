@@ -21,8 +21,8 @@ audio:
   format: "mp3"
 
 paths:
-  music_dir: "/tmp/spotify-swimmer-test"
-  headphones_mount: "/tmp/spotify-swimmer-test/headphones"
+  music_dir: "/tmp/music-ferry-test"
+  headphones_mount: "/tmp/music-ferry-test/headphones"
   headphones_music_folder: "Music"
 
 notifications:

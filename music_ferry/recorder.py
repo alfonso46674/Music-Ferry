@@ -1,4 +1,4 @@
-# spotify_swimmer/recorder.py
+# music_ferry/recorder.py
 import random
 import subprocess
 from pathlib import Path

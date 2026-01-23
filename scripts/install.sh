@@ -1,14 +1,14 @@
 #!/bin/bash
 # scripts/install.sh
-# Install Spotify Swimmer
+# Install Music Ferry
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-DATA_DIR="$HOME/.spotify-swimmer"
+DATA_DIR="$HOME/.music-ferry"
 
-echo "Installing Spotify Swimmer..."
+echo "Installing Music Ferry..."
 
 # Detect if we're in a virtual environment
 if [ -n "$VIRTUAL_ENV" ]; then
@@ -30,9 +30,9 @@ else
 fi
 
 # Verify installation
-if ! command -v spotify-swimmer &> /dev/null; then
+if ! command -v music-ferry &> /dev/null; then
     echo ""
-    echo "Warning: spotify-swimmer not found in PATH"
+    echo "Warning: music-ferry not found in PATH"
     if [ "$INSTALL_METHOD" = "pip" ]; then
         echo "You may need to add ~/.local/bin to your PATH:"
         echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
@@ -68,7 +68,7 @@ audio:
   format: "mp3"
 
 paths:
-  music_dir: "~/.spotify-swimmer"
+  music_dir: "~/.music-ferry"
   headphones_mount: "/media/YOUR_USERNAME/HEADPHONES"
   headphones_music_folder: "Music"
 
@@ -97,6 +97,6 @@ echo "2. Install Playwright: playwright install chromium"
 echo "3. (Optional) Install systemd timer: $SCRIPT_DIR/install-systemd.sh"
 echo ""
 echo "Usage:"
-echo "  spotify-swimmer sync              # Download new tracks"
-echo "  spotify-swimmer sync --youtube    # YouTube only"
-echo "  spotify-swimmer transfer          # Transfer to headphones"
+echo "  music-ferry sync              # Download new tracks"
+echo "  music-ferry sync --youtube    # YouTube only"
+echo "  music-ferry transfer          # Transfer to headphones"

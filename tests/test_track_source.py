@@ -1,6 +1,6 @@
 # tests/test_track_source.py
 import pytest
-from spotify_swimmer.spotify_api import Track
+from music_ferry.spotify_api import Track
 
 
 class TestTrackSource:

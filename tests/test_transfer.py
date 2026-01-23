@@ -4,8 +4,8 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from spotify_swimmer.transfer import TransferManager, InteractiveTransfer, TransferStatus
-from spotify_swimmer.library import Library
+from music_ferry.transfer import TransferManager, InteractiveTransfer, TransferStatus
+from music_ferry.library import Library
 
 
 class TestTransferManager:
@@ -160,6 +160,7 @@ class TestInteractiveTransfer:
         lib = Library(spotify_dir / "library.json")
         lib.add_track("track1", "track1.mp3", "Song 1", "Artist", "playlist1")
         lib.add_track("track2", "track2.mp3", "Song 2", "Artist", "playlist1")
+        lib.update_playlist("playlist1", "My Playlist", 2)
 
         # Create local files in spotify music dir
         spotify_music = spotify_dir / "music"
@@ -184,6 +185,7 @@ class TestInteractiveTransfer:
         spotify_dir = mock_config.paths.music_dir / "spotify"
         lib = Library(spotify_dir / "library.json")
         lib.add_track("track1", "track1.mp3", "Song 1", "Artist", "playlist1")
+        lib.update_playlist("playlist1", "My Playlist", 1)
 
         # Create file in spotify music dir
         spotify_music = spotify_dir / "music"

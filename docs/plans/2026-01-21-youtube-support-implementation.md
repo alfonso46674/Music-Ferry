@@ -51,7 +51,7 @@ git commit -m "chore: add yt-dlp dependency for YouTube support"
 ## Task 2: Add Source Field to Track Dataclass
 
 **Files:**
-- Modify: `spotify_swimmer/spotify_api.py:8-24`
+- Modify: `music_ferry/spotify_api.py:8-24`
 - Test: `tests/test_spotify_api.py`
 
 **Step 1: Write the failing test**
@@ -61,7 +61,7 @@ Create `tests/test_track_source.py`:
 ```python
 # tests/test_track_source.py
 import pytest
-from spotify_swimmer.spotify_api import Track
+from music_ferry.spotify_api import Track
 
 
 class TestTrackSource:
@@ -96,7 +96,7 @@ Expected: FAIL with "unexpected keyword argument 'source'"
 
 **Step 3: Add source field to Track dataclass**
 
-In `spotify_swimmer/spotify_api.py`, update the Track dataclass:
+In `music_ferry/spotify_api.py`, update the Track dataclass:
 
 ```python
 @dataclass
@@ -131,7 +131,7 @@ Expected: All tests pass
 **Step 6: Commit**
 
 ```bash
-git add spotify_swimmer/spotify_api.py tests/test_track_source.py
+git add music_ferry/spotify_api.py tests/test_track_source.py
 git commit -m "feat: add source field to Track dataclass"
 ```
 
@@ -140,7 +140,7 @@ git commit -m "feat: add source field to Track dataclass"
 ## Task 3: Update Config for YouTube Support
 
 **Files:**
-- Modify: `spotify_swimmer/config.py`
+- Modify: `music_ferry/config.py`
 - Test: `tests/test_config.py`
 
 **Step 1: Write the failing test for new config structure**
@@ -169,7 +169,7 @@ class TestYouTubeConfig:
             },
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer",
+                "music_dir": "~/.music-ferry",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -207,7 +207,7 @@ class TestYouTubeConfig:
             },
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer",
+                "music_dir": "~/.music-ferry",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -238,7 +238,7 @@ class TestYouTubeConfig:
             ],
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer",
+                "music_dir": "~/.music-ferry",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -273,7 +273,7 @@ class TestYouTubePlaylistConfig:
             },
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer",
+                "music_dir": "~/.music-ferry",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -293,10 +293,10 @@ Expected: FAIL with attribute errors
 
 **Step 3: Update config.py with new structure**
 
-Replace `spotify_swimmer/config.py`:
+Replace `music_ferry/config.py`:
 
 ```python
-# spotify_swimmer/config.py
+# music_ferry/config.py
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -432,7 +432,7 @@ def load_config(config_path: Path) -> Config:
 
     paths_data = data.get("paths", {})
     paths = PathsConfig(
-        music_dir=paths_data.get("music_dir", "~/.spotify-swimmer"),
+        music_dir=paths_data.get("music_dir", "~/.music-ferry"),
         headphones_mount=paths_data.get("headphones_mount", "/media/user/HEADPHONES"),
         headphones_music_folder=paths_data.get("headphones_music_folder", "Music"),
     )
@@ -473,7 +473,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from spotify_swimmer.config import Config, load_config
+from music_ferry.config import Config, load_config
 
 
 class TestConfig:
@@ -490,7 +490,7 @@ class TestConfig:
             },
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer/music",
+                "music_dir": "~/.music-ferry/music",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -514,7 +514,7 @@ class TestConfig:
         assert len(config.spotify.playlists) == 1
         assert config.spotify.playlists[0].name == "Test Playlist"
         assert config.audio.bitrate == 192
-        assert config.paths.music_dir == Path.home() / ".spotify-swimmer" / "music"
+        assert config.paths.music_dir == Path.home() / ".music-ferry" / "music"
         assert config.notifications.ntfy_topic == "test-topic"
         assert config.behavior.skip_existing is True
 
@@ -546,7 +546,7 @@ class TestConfig:
             },
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer/music",
+                "music_dir": "~/.music-ferry/music",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -574,7 +574,7 @@ Expected: All tests pass
 **Step 6: Commit**
 
 ```bash
-git add spotify_swimmer/config.py tests/test_config.py
+git add music_ferry/config.py tests/test_config.py
 git commit -m "feat: update config structure for YouTube support"
 ```
 
@@ -583,17 +583,17 @@ git commit -m "feat: update config structure for YouTube support"
 ## Task 4: Create YouTube Downloader Module
 
 **Files:**
-- Create: `spotify_swimmer/youtube/__init__.py`
-- Create: `spotify_swimmer/youtube/downloader.py`
+- Create: `music_ferry/youtube/__init__.py`
+- Create: `music_ferry/youtube/downloader.py`
 - Test: `tests/test_youtube_downloader.py`
 
 **Step 1: Create the youtube package**
 
-Create `spotify_swimmer/youtube/__init__.py`:
+Create `music_ferry/youtube/__init__.py`:
 
 ```python
-# spotify_swimmer/youtube/__init__.py
-from spotify_swimmer.youtube.downloader import YouTubeDownloader
+# music_ferry/youtube/__init__.py
+from music_ferry.youtube.downloader import YouTubeDownloader
 
 __all__ = ["YouTubeDownloader"]
 ```
@@ -609,8 +609,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch, call
 import json
 
-from spotify_swimmer.youtube.downloader import YouTubeDownloader
-from spotify_swimmer.spotify_api import Track
+from music_ferry.youtube.downloader import YouTubeDownloader
+from music_ferry.spotify_api import Track
 
 
 class TestYouTubeDownloader:
@@ -623,7 +623,7 @@ class TestYouTubeDownloader:
         downloader = YouTubeDownloader(output_dir=output_dir, bitrate=192)
         assert output_dir.exists()
 
-    @patch("spotify_swimmer.youtube.downloader.yt_dlp.YoutubeDL")
+    @patch("music_ferry.youtube.downloader.yt_dlp.YoutubeDL")
     def test_get_playlist_tracks_returns_tracks(self, mock_ydl_class, downloader):
         mock_ydl = MagicMock()
         mock_ydl_class.return_value.__enter__ = MagicMock(return_value=mock_ydl)
@@ -662,7 +662,7 @@ class TestYouTubeDownloader:
         assert tracks[0].duration_ms == 213000
         assert tracks[0].source == "youtube"
 
-    @patch("spotify_swimmer.youtube.downloader.yt_dlp.YoutubeDL")
+    @patch("music_ferry.youtube.downloader.yt_dlp.YoutubeDL")
     def test_download_track_calls_ytdlp(self, mock_ydl_class, downloader, tmp_path):
         mock_ydl = MagicMock()
         mock_ydl_class.return_value.__enter__ = MagicMock(return_value=mock_ydl)
@@ -683,8 +683,8 @@ class TestYouTubeDownloader:
         mock_ydl.download.assert_called_once()
         assert result == downloader.output_dir / "dQw4w9WgXcQ.mp3"
 
-    @patch("spotify_swimmer.youtube.downloader.time.sleep")
-    @patch("spotify_swimmer.youtube.downloader.random.uniform")
+    @patch("music_ferry.youtube.downloader.time.sleep")
+    @patch("music_ferry.youtube.downloader.random.uniform")
     def test_download_tracks_with_delay(self, mock_random, mock_sleep, downloader):
         mock_random.return_value = 10.0
 
@@ -707,14 +707,14 @@ class TestYouTubeDownloader:
 **Step 3: Run test to verify it fails**
 
 Run: `pytest tests/test_youtube_downloader.py -v`
-Expected: FAIL with "No module named 'spotify_swimmer.youtube'"
+Expected: FAIL with "No module named 'music_ferry.youtube'"
 
 **Step 4: Create the downloader module**
 
-Create `spotify_swimmer/youtube/downloader.py`:
+Create `music_ferry/youtube/downloader.py`:
 
 ```python
-# spotify_swimmer/youtube/downloader.py
+# music_ferry/youtube/downloader.py
 import logging
 import random
 import time
@@ -722,7 +722,7 @@ from pathlib import Path
 
 import yt_dlp
 
-from spotify_swimmer.spotify_api import Track
+from music_ferry.spotify_api import Track
 
 logger = logging.getLogger(__name__)
 
@@ -844,7 +844,7 @@ Expected: All tests pass
 **Step 6: Commit**
 
 ```bash
-git add spotify_swimmer/youtube/ tests/test_youtube_downloader.py
+git add music_ferry/youtube/ tests/test_youtube_downloader.py
 git commit -m "feat: add YouTube downloader module with yt-dlp"
 ```
 
@@ -853,7 +853,7 @@ git commit -m "feat: add YouTube downloader module with yt-dlp"
 ## Task 5: Add CLI Flags for Source Selection
 
 **Files:**
-- Modify: `spotify_swimmer/cli.py`
+- Modify: `music_ferry/cli.py`
 - Test: `tests/test_cli.py`
 
 **Step 1: Write the failing tests**
@@ -863,7 +863,7 @@ Create `tests/test_cli_sources.py`:
 ```python
 # tests/test_cli_sources.py
 import pytest
-from spotify_swimmer.cli import parse_args
+from music_ferry.cli import parse_args
 
 
 class TestCLISourceFlags:
@@ -919,17 +919,17 @@ Expected: FAIL with "Namespace has no attribute 'spotify'"
 
 **Step 3: Update CLI with source flags**
 
-Update `spotify_swimmer/cli.py`:
+Update `music_ferry/cli.py`:
 
 ```python
-# spotify_swimmer/cli.py
+# music_ferry/cli.py
 import argparse
 import asyncio
 import logging
 import sys
 from pathlib import Path
 
-from spotify_swimmer.config import load_config
+from music_ferry.config import load_config
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -964,8 +964,8 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "-c", "--config",
         type=Path,
-        default=Path.home() / ".spotify-swimmer" / "config.yaml",
-        help="Path to config file (default: ~/.spotify-swimmer/config.yaml)",
+        default=Path.home() / ".music-ferry" / "config.yaml",
+        help="Path to config file (default: ~/.music-ferry/config.yaml)",
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -1008,7 +1008,7 @@ def _resolve_sources(args: argparse.Namespace, config) -> tuple[bool, bool]:
 
 def cmd_sync(config, args) -> int:
     """Run sync command - download new tracks, cleanup orphans."""
-    from spotify_swimmer.orchestrator import Orchestrator
+    from music_ferry.orchestrator import Orchestrator
 
     logger = logging.getLogger(__name__)
 
@@ -1039,7 +1039,7 @@ def cmd_sync(config, args) -> int:
 
 def cmd_transfer(config, args) -> int:
     """Run transfer command - interactive headphones transfer."""
-    from spotify_swimmer.transfer import InteractiveTransfer
+    from music_ferry.transfer import InteractiveTransfer
 
     logger = logging.getLogger(__name__)
 
@@ -1098,7 +1098,7 @@ Expected: All tests pass
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/cli.py tests/test_cli_sources.py
+git add music_ferry/cli.py tests/test_cli_sources.py
 git commit -m "feat: add --spotify and --youtube flags to CLI"
 ```
 
@@ -1107,7 +1107,7 @@ git commit -m "feat: add --spotify and --youtube flags to CLI"
 ## Task 6: Update Orchestrator for Multi-Source Support
 
 **Files:**
-- Modify: `spotify_swimmer/orchestrator.py`
+- Modify: `music_ferry/orchestrator.py`
 - Test: `tests/test_orchestrator.py`
 
 **Step 1: Write the failing tests**
@@ -1120,7 +1120,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from spotify_swimmer.orchestrator import Orchestrator
+from music_ferry.orchestrator import Orchestrator
 
 
 class TestOrchestratorMultiSource:
@@ -1205,22 +1205,22 @@ Expected: FAIL with attribute errors
 
 **Step 3: Update orchestrator for multi-source support**
 
-Update `spotify_swimmer/orchestrator.py`:
+Update `music_ferry/orchestrator.py`:
 
 ```python
-# spotify_swimmer/orchestrator.py
+# music_ferry/orchestrator.py
 import asyncio
 import logging
 from pathlib import Path
 
-from spotify_swimmer.config import Config, PlaylistConfig
-from spotify_swimmer.library import Library
-from spotify_swimmer.spotify_api import SpotifyAPI, Track
-from spotify_swimmer.browser import SpotifyBrowser
-from spotify_swimmer.recorder import AudioRecorder
-from spotify_swimmer.tagger import tag_mp3
-from spotify_swimmer.notify import Notifier, SyncResult, PlaylistResult
-from spotify_swimmer.youtube import YouTubeDownloader
+from music_ferry.config import Config, PlaylistConfig
+from music_ferry.library import Library
+from music_ferry.spotify_api import SpotifyAPI, Track
+from music_ferry.browser import SpotifyBrowser
+from music_ferry.recorder import AudioRecorder
+from music_ferry.tagger import tag_mp3
+from music_ferry.notify import Notifier, SyncResult, PlaylistResult
+from music_ferry.youtube import YouTubeDownloader
 
 
 logger = logging.getLogger(__name__)
@@ -1703,7 +1703,7 @@ Expected: All tests pass
 **Step 6: Commit**
 
 ```bash
-git add spotify_swimmer/orchestrator.py tests/test_orchestrator_sources.py
+git add music_ferry/orchestrator.py tests/test_orchestrator_sources.py
 git commit -m "feat: update orchestrator for multi-source support"
 ```
 
@@ -1712,7 +1712,7 @@ git commit -m "feat: update orchestrator for multi-source support"
 ## Task 7: Update Transfer for Multi-Source Support
 
 **Files:**
-- Modify: `spotify_swimmer/transfer.py`
+- Modify: `music_ferry/transfer.py`
 - Test: `tests/test_transfer.py`
 
 **Step 1: Write the failing tests**
@@ -1725,8 +1725,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from spotify_swimmer.library import Library
-from spotify_swimmer.transfer import InteractiveTransfer
+from music_ferry.library import Library
+from music_ferry.transfer import InteractiveTransfer
 
 
 class TestMultiSourceTransfer:
@@ -1850,16 +1850,16 @@ Expected: FAIL with TypeError about 'sources' argument
 
 **Step 3: Update transfer.py for multi-source support**
 
-Update `spotify_swimmer/transfer.py`:
+Update `music_ferry/transfer.py`:
 
 ```python
-# spotify_swimmer/transfer.py
+# music_ferry/transfer.py
 import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from spotify_swimmer.library import Library
+from music_ferry.library import Library
 
 
 @dataclass
@@ -2209,8 +2209,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from spotify_swimmer.library import Library
-from spotify_swimmer.transfer import InteractiveTransfer
+from music_ferry.library import Library
+from music_ferry.transfer import InteractiveTransfer
 
 
 class TestFullWorkflow:
@@ -2332,7 +2332,7 @@ class TestFullWorkflow:
         assert not (headphones / "old2.mp3").exists()
 
     def test_playback_mode_selection(self):
-        from spotify_swimmer.orchestrator import Orchestrator
+        from music_ferry.orchestrator import Orchestrator
 
         # 100% new -> playlist mode
         assert Orchestrator._select_playback_mode(10, 10) == "playlist"
@@ -2379,7 +2379,7 @@ Expected: All tests pass
 **Step 7: Commit**
 
 ```bash
-git add spotify_swimmer/transfer.py tests/test_transfer_sources.py tests/test_integration.py
+git add music_ferry/transfer.py tests/test_transfer_sources.py tests/test_integration.py
 git commit -m "feat: update transfer for multi-source support"
 ```
 
@@ -2419,7 +2419,7 @@ audio:
   format: "mp3"
 
 paths:
-  music_dir: "~/.spotify-swimmer"
+  music_dir: "~/.music-ferry"
   headphones_mount: "/media/YOUR_USERNAME/HEADPHONES"
   headphones_music_folder: "Music"
 
@@ -2460,18 +2460,18 @@ Expected: All tests pass
 
 **Step 2: Run type checking if available**
 
-Run: `python -m mypy spotify_swimmer/` (if mypy is installed)
+Run: `python -m mypy music_ferry/` (if mypy is installed)
 Expected: No type errors
 
 **Step 3: Test manual CLI invocation**
 
-Run: `spotify-swimmer --help`
+Run: `music-ferry --help`
 Expected: Shows updated help with sync/transfer commands
 
-Run: `spotify-swimmer sync --help`
+Run: `music-ferry sync --help`
 Expected: Shows --spotify and --youtube flags
 
-Run: `spotify-swimmer transfer --help`
+Run: `music-ferry transfer --help`
 Expected: Shows --spotify and --youtube flags
 
 **Step 4: Commit any final fixes**

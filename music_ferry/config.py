@@ -1,4 +1,4 @@
-# spotify_swimmer/config.py
+# music_ferry/config.py
 from dataclasses import dataclass, field
 from pathlib import Path
 import re
@@ -154,7 +154,7 @@ def load_config(config_path: Path) -> Config:
 
     paths_data = data.get("paths", {})
     paths = PathsConfig(
-        music_dir=paths_data.get("music_dir", "~/.spotify-swimmer/music"),
+        music_dir=paths_data.get("music_dir", "~/.music-ferry"),
         headphones_mount=paths_data.get("headphones_mount", "/media/user/HEADPHONES"),
         headphones_music_folder=paths_data.get("headphones_music_folder", "Music"),
     )

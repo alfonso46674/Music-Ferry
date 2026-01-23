@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from spotify_swimmer.spotify_api import SpotifyAPI, Track
+from music_ferry.spotify_api import SpotifyAPI, Track
 
 
 class TestSpotifyAPI:
@@ -20,7 +20,7 @@ class TestSpotifyAPI:
         assert track.duration_seconds == 180
         assert track.artist_string == "Artist 1, Artist 2"
 
-    @patch("spotify_swimmer.spotify_api.spotipy.Spotify")
+    @patch("music_ferry.spotify_api.spotipy.Spotify")
     def test_get_playlist_tracks(self, mock_spotify_class):
         mock_spotify = MagicMock()
         mock_spotify_class.return_value = mock_spotify
@@ -65,7 +65,7 @@ class TestSpotifyAPI:
         assert tracks[1].artists == ["Artist B", "Artist C"]
         assert tracks[1].artist_string == "Artist B, Artist C"
 
-    @patch("spotify_swimmer.spotify_api.spotipy.Spotify")
+    @patch("music_ferry.spotify_api.spotipy.Spotify")
     def test_get_playlist_tracks_pagination(self, mock_spotify_class):
         mock_spotify = MagicMock()
         mock_spotify_class.return_value = mock_spotify
@@ -107,7 +107,7 @@ class TestSpotifyAPI:
 
         assert len(tracks) == 2
 
-    @patch("spotify_swimmer.spotify_api.spotipy.Spotify")
+    @patch("music_ferry.spotify_api.spotipy.Spotify")
     def test_skips_none_tracks(self, mock_spotify_class):
         """Spotify sometimes returns None for tracks (e.g., local files)"""
         mock_spotify = MagicMock()

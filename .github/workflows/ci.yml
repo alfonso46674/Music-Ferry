@@ -37,4 +37,4 @@ jobs:
       - name: Check types (optional)
         run: |
           pip install mypy
-          mypy spotify_swimmer --ignore-missing-imports || true
+          mypy music_ferry --ignore-missing-imports || true

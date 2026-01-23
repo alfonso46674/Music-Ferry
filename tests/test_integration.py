@@ -3,8 +3,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from spotify_swimmer.library import Library
-from spotify_swimmer.transfer import InteractiveTransfer
+from music_ferry.library import Library
+from music_ferry.transfer import InteractiveTransfer
 
 
 class TestFullWorkflow:
@@ -104,6 +104,7 @@ class TestFullWorkflow:
 
         lib = Library(spotify_dir / "library.json")
         lib.add_track("track1", "track1.mp3", "Song 1", "Artist", "playlist1")
+        lib.update_playlist("playlist1", "My Playlist", 1)
 
         # Create local file in spotify music dir
         (spotify_music / "track1.mp3").write_bytes(b"data1")
@@ -122,7 +123,7 @@ class TestFullWorkflow:
         assert not (headphones / "old2.mp3").exists()
 
     def test_playback_mode_selection(self):
-        from spotify_swimmer.orchestrator import Orchestrator
+        from music_ferry.orchestrator import Orchestrator
 
         # 100% new -> playlist mode
         assert Orchestrator._select_playback_mode(10, 10) == "playlist"

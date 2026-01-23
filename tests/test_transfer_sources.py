@@ -3,8 +3,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from spotify_swimmer.library import Library
-from spotify_swimmer.transfer import InteractiveTransfer
+from music_ferry.library import Library
+from music_ferry.transfer import InteractiveTransfer
 
 
 class TestMultiSourceTransfer:

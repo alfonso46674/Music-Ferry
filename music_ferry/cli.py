@@ -1,11 +1,11 @@
-# spotify_swimmer/cli.py
+# music_ferry/cli.py
 import argparse
 import asyncio
 import logging
 import sys
 from pathlib import Path
 
-from spotify_swimmer.config import load_config
+from music_ferry.config import load_config
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -42,15 +42,15 @@ def _resolve_sources(args: argparse.Namespace, config) -> tuple[bool, bool]:
 
 def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Download Spotify playlists to MP3 for offline swimming"
+        description="Ferry Spotify and YouTube playlists to MP3 for offline listening"
     )
 
     # Global arguments
     parser.add_argument(
         "-c", "--config",
         type=Path,
-        default=Path.home() / ".spotify-swimmer" / "config.yaml",
-        help="Path to config file (default: ~/.spotify-swimmer/config.yaml)",
+        default=Path.home() / ".music-ferry" / "config.yaml",
+        help="Path to config file (default: ~/.music-ferry/config.yaml)",
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -85,7 +85,7 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
 
 def cmd_sync(config, verbose: bool) -> int:
     """Run sync command - download new tracks, cleanup orphans."""
-    from spotify_swimmer.orchestrator import Orchestrator
+    from music_ferry.orchestrator import Orchestrator
 
     logger = logging.getLogger(__name__)
     orchestrator = Orchestrator(config)
@@ -114,7 +114,7 @@ def cmd_sync(config, verbose: bool) -> int:
 
 def cmd_transfer(config, verbose: bool, auto: bool) -> int:
     """Run transfer command - interactive headphones transfer."""
-    from spotify_swimmer.transfer import InteractiveTransfer
+    from music_ferry.transfer import InteractiveTransfer
 
     logger = logging.getLogger(__name__)
 

@@ -1,11 +1,11 @@
-# spotify_swimmer/tagger.py
+# music_ferry/tagger.py
 from pathlib import Path
 
 import requests
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC, ID3NoHeaderError
 
-from spotify_swimmer.spotify_api import Track
+from music_ferry.spotify_api import Track
 
 
 def tag_mp3(mp3_path: Path, track: Track) -> None:

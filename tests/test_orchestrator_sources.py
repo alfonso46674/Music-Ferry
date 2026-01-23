@@ -3,7 +3,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from spotify_swimmer.orchestrator import Orchestrator
+from music_ferry.orchestrator import Orchestrator
 
 
 class TestOrchestratorMultiSource:

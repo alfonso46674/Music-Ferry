@@ -1,16 +1,16 @@
-# spotify_swimmer/orchestrator.py
+# music_ferry/orchestrator.py
 import asyncio
 import logging
 from pathlib import Path
 
-from spotify_swimmer.config import Config, PlaylistConfig
-from spotify_swimmer.library import Library
-from spotify_swimmer.spotify_api import SpotifyAPI, Track
-from spotify_swimmer.browser import SpotifyBrowser
-from spotify_swimmer.recorder import AudioRecorder
-from spotify_swimmer.tagger import tag_mp3
-from spotify_swimmer.notify import Notifier, SyncResult, PlaylistResult
-from spotify_swimmer.youtube import YouTubeDownloader
+from music_ferry.config import Config, PlaylistConfig
+from music_ferry.library import Library
+from music_ferry.spotify_api import SpotifyAPI, Track
+from music_ferry.browser import SpotifyBrowser
+from music_ferry.recorder import AudioRecorder
+from music_ferry.tagger import tag_mp3
+from music_ferry.notify import Notifier, SyncResult, PlaylistResult
+from music_ferry.youtube import YouTubeDownloader
 
 
 logger = logging.getLogger(__name__)

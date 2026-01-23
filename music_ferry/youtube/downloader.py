@@ -1,4 +1,4 @@
-# spotify_swimmer/youtube/downloader.py
+# music_ferry/youtube/downloader.py
 import logging
 import random
 import time
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yt_dlp
 
-from spotify_swimmer.spotify_api import Track
+from music_ferry.spotify_api import Track
 
 logger = logging.getLogger(__name__)
 

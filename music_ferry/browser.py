@@ -1,4 +1,4 @@
-# spotify_swimmer/browser.py
+# music_ferry/browser.py
 import asyncio
 import json
 import random

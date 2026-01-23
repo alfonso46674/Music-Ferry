@@ -1,4 +1,4 @@
-# Spotify Swimmer Implementation Plan
+# Music Ferry Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -14,7 +14,7 @@
 
 **Files:**
 - Create: `pyproject.toml`
-- Create: `spotify_swimmer/__init__.py`
+- Create: `music_ferry/__init__.py`
 - Create: `tests/__init__.py`
 - Create: `.gitignore`
 
@@ -31,7 +31,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "spotify-swimmer"
+name = "music-ferry"
 version = "0.1.0"
 description = "Download Spotify playlists to MP3 for offline swimming"
 requires-python = ">=3.11"
@@ -51,7 +51,7 @@ dev = [
 ]
 
 [project.scripts]
-spotify-swimmer = "spotify_swimmer.cli:main"
+music-ferry = "music_ferry.cli:main"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -61,7 +61,7 @@ testpaths = ["tests"]
 **Step 3: Create package structure**
 
 ```python
-# spotify_swimmer/__init__.py
+# music_ferry/__init__.py
 __version__ = "0.1.0"
 ```
 
@@ -88,7 +88,7 @@ cookies/
 **Step 5: Create virtual environment and install**
 
 Run: `python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"`
-Expected: Successfully installed spotify-swimmer
+Expected: Successfully installed music-ferry
 
 **Step 6: Verify pytest works**
 
@@ -98,7 +98,7 @@ Expected: no tests ran (empty collection is fine)
 **Step 7: Commit**
 
 ```bash
-git add pyproject.toml spotify_swimmer/ tests/ .gitignore
+git add pyproject.toml music_ferry/ tests/ .gitignore
 git commit -m "chore: initial project setup"
 ```
 
@@ -107,7 +107,7 @@ git commit -m "chore: initial project setup"
 ## Task 2: Config Module
 
 **Files:**
-- Create: `spotify_swimmer/config.py`
+- Create: `music_ferry/config.py`
 - Create: `tests/test_config.py`
 
 **Step 1: Write the failing test**
@@ -120,7 +120,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from spotify_swimmer.config import Config, load_config
+from music_ferry.config import Config, load_config
 
 
 class TestConfig:
@@ -137,7 +137,7 @@ class TestConfig:
             ],
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer/music",
+                "music_dir": "~/.music-ferry/music",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -162,7 +162,7 @@ class TestConfig:
         assert len(config.playlists) == 1
         assert config.playlists[0].name == "Test Playlist"
         assert config.audio.bitrate == 192
-        assert config.paths.music_dir == Path.home() / ".spotify-swimmer" / "music"
+        assert config.paths.music_dir == Path.home() / ".music-ferry" / "music"
         assert config.notifications.ntfy_topic == "test-topic"
         assert config.behavior.skip_existing is True
 
@@ -194,7 +194,7 @@ class TestConfig:
             ],
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer/music",
+                "music_dir": "~/.music-ferry/music",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -223,7 +223,7 @@ Expected: FAIL with "ModuleNotFoundError" or "ImportError"
 **Step 3: Write minimal implementation**
 
 ```python
-# spotify_swimmer/config.py
+# music_ferry/config.py
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -328,7 +328,7 @@ def load_config(config_path: Path) -> Config:
 
     paths_data = data.get("paths", {})
     paths = PathsConfig(
-        music_dir=paths_data.get("music_dir", "~/.spotify-swimmer/music"),
+        music_dir=paths_data.get("music_dir", "~/.music-ferry/music"),
         headphones_mount=paths_data.get("headphones_mount", "/media/user/HEADPHONES"),
         headphones_music_folder=paths_data.get("headphones_music_folder", "Music"),
     )
@@ -366,7 +366,7 @@ Expected: PASSED
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/config.py tests/test_config.py
+git add music_ferry/config.py tests/test_config.py
 git commit -m "feat: add config module with YAML loading"
 ```
 
@@ -375,7 +375,7 @@ git commit -m "feat: add config module with YAML loading"
 ## Task 3: Track Database Module
 
 **Files:**
-- Create: `spotify_swimmer/tracks_db.py`
+- Create: `music_ferry/tracks_db.py`
 - Create: `tests/test_tracks_db.py`
 
 **Step 1: Write the failing test**
@@ -386,7 +386,7 @@ from pathlib import Path
 
 import pytest
 
-from spotify_swimmer.tracks_db import TracksDB
+from music_ferry.tracks_db import TracksDB
 
 
 class TestTracksDB:
@@ -440,7 +440,7 @@ Expected: FAIL with "ModuleNotFoundError"
 **Step 3: Write minimal implementation**
 
 ```python
-# spotify_swimmer/tracks_db.py
+# music_ferry/tracks_db.py
 import json
 from pathlib import Path
 
@@ -488,7 +488,7 @@ Expected: PASSED
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/tracks_db.py tests/test_tracks_db.py
+git add music_ferry/tracks_db.py tests/test_tracks_db.py
 git commit -m "feat: add track database for tracking downloaded songs"
 ```
 
@@ -497,7 +497,7 @@ git commit -m "feat: add track database for tracking downloaded songs"
 ## Task 4: Spotify API Module
 
 **Files:**
-- Create: `spotify_swimmer/spotify_api.py`
+- Create: `music_ferry/spotify_api.py`
 - Create: `tests/test_spotify_api.py`
 
 **Step 1: Write the failing test**
@@ -508,7 +508,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from spotify_swimmer.spotify_api import SpotifyAPI, Track
+from music_ferry.spotify_api import SpotifyAPI, Track
 
 
 class TestSpotifyAPI:
@@ -525,7 +525,7 @@ class TestSpotifyAPI:
         assert track.duration_seconds == 180
         assert track.artist_string == "Artist 1, Artist 2"
 
-    @patch("spotify_swimmer.spotify_api.spotipy.Spotify")
+    @patch("music_ferry.spotify_api.spotipy.Spotify")
     def test_get_playlist_tracks(self, mock_spotify_class):
         mock_spotify = MagicMock()
         mock_spotify_class.return_value = mock_spotify
@@ -570,7 +570,7 @@ class TestSpotifyAPI:
         assert tracks[1].artists == ["Artist B", "Artist C"]
         assert tracks[1].artist_string == "Artist B, Artist C"
 
-    @patch("spotify_swimmer.spotify_api.spotipy.Spotify")
+    @patch("music_ferry.spotify_api.spotipy.Spotify")
     def test_get_playlist_tracks_pagination(self, mock_spotify_class):
         mock_spotify = MagicMock()
         mock_spotify_class.return_value = mock_spotify
@@ -612,7 +612,7 @@ class TestSpotifyAPI:
 
         assert len(tracks) == 2
 
-    @patch("spotify_swimmer.spotify_api.spotipy.Spotify")
+    @patch("music_ferry.spotify_api.spotipy.Spotify")
     def test_skips_none_tracks(self, mock_spotify_class):
         """Spotify sometimes returns None for tracks (e.g., local files)"""
         mock_spotify = MagicMock()
@@ -649,7 +649,7 @@ Expected: FAIL with "ModuleNotFoundError"
 **Step 3: Write minimal implementation**
 
 ```python
-# spotify_swimmer/spotify_api.py
+# music_ferry/spotify_api.py
 from dataclasses import dataclass
 
 import spotipy
@@ -721,7 +721,7 @@ Expected: PASSED
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/spotify_api.py tests/test_spotify_api.py
+git add music_ferry/spotify_api.py tests/test_spotify_api.py
 git commit -m "feat: add Spotify API module for playlist metadata"
 ```
 
@@ -730,7 +730,7 @@ git commit -m "feat: add Spotify API module for playlist metadata"
 ## Task 5: Ntfy Notification Module
 
 **Files:**
-- Create: `spotify_swimmer/notify.py`
+- Create: `music_ferry/notify.py`
 - Create: `tests/test_notify.py`
 
 **Step 1: Write the failing test**
@@ -741,7 +741,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from spotify_swimmer.notify import Notifier, SyncResult, PlaylistResult
+from music_ferry.notify import Notifier, SyncResult, PlaylistResult
 
 
 class TestNotifier:
@@ -779,7 +779,7 @@ class TestNotifier:
         )
         assert result.is_failure is True
 
-    @patch("spotify_swimmer.notify.requests.post")
+    @patch("music_ferry.notify.requests.post")
     def test_send_success_notification(self, mock_post):
         mock_post.return_value = MagicMock(status_code=200)
 
@@ -803,12 +803,12 @@ class TestNotifier:
         mock_post.assert_called_once()
         call_args = mock_post.call_args
         assert "ntfy.sh/test-topic" in call_args[0][0]
-        assert "Spotify Swimmer Complete" in call_args[1]["headers"]["Title"]
+        assert "Music Ferry Complete" in call_args[1]["headers"]["Title"]
         assert "12 new tracks" in call_args[1]["data"]
         assert "Discover Weekly: 8 new tracks" in call_args[1]["data"]
         assert "Workout Mix: 4 new tracks" in call_args[1]["data"]
 
-    @patch("spotify_swimmer.notify.requests.post")
+    @patch("music_ferry.notify.requests.post")
     def test_send_failure_notification(self, mock_post):
         mock_post.return_value = MagicMock(status_code=200)
 
@@ -831,10 +831,10 @@ class TestNotifier:
 
         mock_post.assert_called_once()
         call_args = mock_post.call_args
-        assert "Spotify Swimmer Failed" in call_args[1]["headers"]["Title"]
+        assert "Music Ferry Failed" in call_args[1]["headers"]["Title"]
         assert "Login expired" in call_args[1]["data"]
 
-    @patch("spotify_swimmer.notify.requests.post")
+    @patch("music_ferry.notify.requests.post")
     def test_skip_success_notification_when_disabled(self, mock_post):
         notifier = Notifier(
             ntfy_server="https://ntfy.sh",
@@ -862,7 +862,7 @@ Expected: FAIL with "ModuleNotFoundError"
 **Step 3: Write minimal implementation**
 
 ```python
-# spotify_swimmer/notify.py
+# music_ferry/notify.py
 from dataclasses import dataclass, field
 
 import requests
@@ -922,12 +922,12 @@ class Notifier:
 
     def _format_message(self, result: SyncResult) -> tuple[str, str]:
         if result.is_failure:
-            title = "❌ Spotify Swimmer Failed"
+            title = "❌ Music Ferry Failed"
             body = f"{result.global_error or 'Sync failed'}\n\nPlaylists:\n"
             for p in result.playlists:
                 body += f"• {p.name}: Not synced\n"
         elif result.has_errors:
-            title = "⚠️ Spotify Swimmer Partial"
+            title = "⚠️ Music Ferry Partial"
             body = f"Synced {result.total_tracks} new tracks. Some issues occurred.\n\nPlaylists:\n"
             for p in result.playlists:
                 if p.error:
@@ -937,7 +937,7 @@ class Notifier:
             if result.transferred:
                 body += "\nTransferred to headphones."
         else:
-            title = "🏊 Spotify Swimmer Complete"
+            title = "🏊 Music Ferry Complete"
             body = f"Synced {result.total_tracks} new tracks."
             if result.transferred:
                 body += " Transferred to headphones."
@@ -964,7 +964,7 @@ Expected: PASSED
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/notify.py tests/test_notify.py
+git add music_ferry/notify.py tests/test_notify.py
 git commit -m "feat: add Ntfy notification module"
 ```
 
@@ -973,7 +973,7 @@ git commit -m "feat: add Ntfy notification module"
 ## Task 6: MP3 Tagger Module
 
 **Files:**
-- Create: `spotify_swimmer/tagger.py`
+- Create: `music_ferry/tagger.py`
 - Create: `tests/test_tagger.py`
 
 **Step 1: Write the failing test**
@@ -988,8 +988,8 @@ import pytest
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3
 
-from spotify_swimmer.tagger import tag_mp3
-from spotify_swimmer.spotify_api import Track
+from music_ferry.tagger import tag_mp3
+from music_ferry.spotify_api import Track
 
 
 class TestTagger:
@@ -1019,7 +1019,7 @@ class TestTagger:
         assert audio.tags["TPE1"].text[0] == "Artist 1, Artist 2"
         assert audio.tags["TALB"].text[0] == "Test Album"
 
-    @patch("spotify_swimmer.tagger.requests.get")
+    @patch("music_ferry.tagger.requests.get")
     def test_tag_mp3_with_album_art(self, mock_get, tmp_path: Path):
         # Create minimal MP3
         mp3_path = tmp_path / "test.mp3"
@@ -1057,14 +1057,14 @@ Expected: FAIL with "ModuleNotFoundError"
 **Step 3: Write minimal implementation**
 
 ```python
-# spotify_swimmer/tagger.py
+# music_ferry/tagger.py
 from pathlib import Path
 
 import requests
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC, ID3NoHeaderError
 
-from spotify_swimmer.spotify_api import Track
+from music_ferry.spotify_api import Track
 
 
 def tag_mp3(mp3_path: Path, track: Track) -> None:
@@ -1107,7 +1107,7 @@ Expected: PASSED
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/tagger.py tests/test_tagger.py
+git add music_ferry/tagger.py tests/test_tagger.py
 git commit -m "feat: add MP3 tagger module with ID3 support"
 ```
 
@@ -1116,7 +1116,7 @@ git commit -m "feat: add MP3 tagger module with ID3 support"
 ## Task 7: Audio Recorder Module
 
 **Files:**
-- Create: `spotify_swimmer/recorder.py`
+- Create: `music_ferry/recorder.py`
 - Create: `tests/test_recorder.py`
 
 **Step 1: Write the failing test**
@@ -1129,15 +1129,15 @@ import asyncio
 
 import pytest
 
-from spotify_swimmer.recorder import AudioRecorder
+from music_ferry.recorder import AudioRecorder
 
 
 class TestAudioRecorder:
     def test_sink_name_generation(self):
         recorder = AudioRecorder(bitrate=192)
-        assert recorder.sink_name == "spotify-swimmer-capture"
+        assert recorder.sink_name == "music-ferry-capture"
 
-    @patch("spotify_swimmer.recorder.subprocess.run")
+    @patch("music_ferry.recorder.subprocess.run")
     def test_create_virtual_sink(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
 
@@ -1151,7 +1151,7 @@ class TestAudioRecorder:
         assert "load-module" in call_args
         assert "module-null-sink" in call_args
 
-    @patch("spotify_swimmer.recorder.subprocess.run")
+    @patch("music_ferry.recorder.subprocess.run")
     def test_destroy_virtual_sink(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
 
@@ -1164,7 +1164,7 @@ class TestAudioRecorder:
         assert "pactl" in call_args
         assert "unload-module" in call_args
 
-    @patch("spotify_swimmer.recorder.subprocess.Popen")
+    @patch("music_ferry.recorder.subprocess.Popen")
     def test_start_recording(self, mock_popen, tmp_path: Path):
         mock_process = MagicMock()
         mock_popen.return_value = mock_process
@@ -1180,7 +1180,7 @@ class TestAudioRecorder:
         assert "-b:a" in call_args
         assert "192k" in call_args
 
-    @patch("spotify_swimmer.recorder.subprocess.Popen")
+    @patch("music_ferry.recorder.subprocess.Popen")
     def test_stop_recording(self, mock_popen, tmp_path: Path):
         mock_process = MagicMock()
         mock_process.poll.return_value = None
@@ -1204,7 +1204,7 @@ Expected: FAIL with "ModuleNotFoundError"
 **Step 3: Write minimal implementation**
 
 ```python
-# spotify_swimmer/recorder.py
+# music_ferry/recorder.py
 import subprocess
 from pathlib import Path
 
@@ -1212,7 +1212,7 @@ from pathlib import Path
 class AudioRecorder:
     def __init__(self, bitrate: int = 192):
         self.bitrate = bitrate
-        self.sink_name = "spotify-swimmer-capture"
+        self.sink_name = "music-ferry-capture"
         self._module_id: int | None = None
         self._ffmpeg_process: subprocess.Popen | None = None
 
@@ -1286,7 +1286,7 @@ Expected: PASSED
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/recorder.py tests/test_recorder.py
+git add music_ferry/recorder.py tests/test_recorder.py
 git commit -m "feat: add audio recorder with PipeWire/FFmpeg"
 ```
 
@@ -1295,7 +1295,7 @@ git commit -m "feat: add audio recorder with PipeWire/FFmpeg"
 ## Task 8: Transfer Module
 
 **Files:**
-- Create: `spotify_swimmer/transfer.py`
+- Create: `music_ferry/transfer.py`
 - Create: `tests/test_transfer.py`
 
 **Step 1: Write the failing test**
@@ -1307,7 +1307,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from spotify_swimmer.transfer import TransferManager
+from music_ferry.transfer import TransferManager
 
 
 class TestTransferManager:
@@ -1403,7 +1403,7 @@ Expected: FAIL with "ModuleNotFoundError"
 **Step 3: Write minimal implementation**
 
 ```python
-# spotify_swimmer/transfer.py
+# music_ferry/transfer.py
 import shutil
 import subprocess
 from pathlib import Path
@@ -1456,7 +1456,7 @@ Expected: PASSED
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/transfer.py tests/test_transfer.py
+git add music_ferry/transfer.py tests/test_transfer.py
 git commit -m "feat: add transfer module for USB headphones"
 ```
 
@@ -1465,7 +1465,7 @@ git commit -m "feat: add transfer module for USB headphones"
 ## Task 9: Browser Automation Module
 
 **Files:**
-- Create: `spotify_swimmer/browser.py`
+- Create: `music_ferry/browser.py`
 - Create: `tests/test_browser.py`
 
 **Step 1: Write the failing test**
@@ -1477,7 +1477,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
 
-from spotify_swimmer.browser import SpotifyBrowser
+from music_ferry.browser import SpotifyBrowser
 
 
 class TestSpotifyBrowser:
@@ -1500,7 +1500,7 @@ class TestSpotifyBrowserIntegration:
     """These tests require Playwright to be installed"""
 
     @pytest.mark.asyncio
-    @patch("spotify_swimmer.browser.async_playwright")
+    @patch("music_ferry.browser.async_playwright")
     async def test_launch_and_close(self, mock_playwright):
         mock_pw = AsyncMock()
         mock_browser = AsyncMock()
@@ -1521,7 +1521,7 @@ class TestSpotifyBrowserIntegration:
         mock_browser.close.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("spotify_swimmer.browser.async_playwright")
+    @patch("music_ferry.browser.async_playwright")
     async def test_play_track(self, mock_playwright):
         mock_pw = AsyncMock()
         mock_browser = AsyncMock()
@@ -1552,7 +1552,7 @@ Expected: FAIL with "ModuleNotFoundError"
 **Step 3: Write minimal implementation**
 
 ```python
-# spotify_swimmer/browser.py
+# music_ferry/browser.py
 import asyncio
 import json
 from pathlib import Path
@@ -1649,7 +1649,7 @@ Expected: PASSED
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/browser.py tests/test_browser.py
+git add music_ferry/browser.py tests/test_browser.py
 git commit -m "feat: add browser automation for Spotify Web Player"
 ```
 
@@ -1658,7 +1658,7 @@ git commit -m "feat: add browser automation for Spotify Web Player"
 ## Task 10: Main Orchestrator
 
 **Files:**
-- Create: `spotify_swimmer/orchestrator.py`
+- Create: `music_ferry/orchestrator.py`
 - Create: `tests/test_orchestrator.py`
 
 **Step 1: Write the failing test**
@@ -1670,12 +1670,12 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
 
-from spotify_swimmer.orchestrator import Orchestrator
-from spotify_swimmer.config import (
+from music_ferry.orchestrator import Orchestrator
+from music_ferry.config import (
     Config, SpotifyConfig, PlaylistConfig, AudioConfig,
     PathsConfig, NotificationsConfig, BehaviorConfig
 )
-from spotify_swimmer.spotify_api import Track
+from music_ferry.spotify_api import Track
 
 
 @pytest.fixture
@@ -1727,10 +1727,10 @@ class TestOrchestrator:
         assert new_tracks[0].id == "new456"
 
     @pytest.mark.asyncio
-    @patch("spotify_swimmer.orchestrator.SpotifyAPI")
-    @patch("spotify_swimmer.orchestrator.SpotifyBrowser")
-    @patch("spotify_swimmer.orchestrator.AudioRecorder")
-    @patch("spotify_swimmer.orchestrator.Notifier")
+    @patch("music_ferry.orchestrator.SpotifyAPI")
+    @patch("music_ferry.orchestrator.SpotifyBrowser")
+    @patch("music_ferry.orchestrator.AudioRecorder")
+    @patch("music_ferry.orchestrator.Notifier")
     async def test_run_sync(
         self,
         mock_notifier_class,
@@ -1778,19 +1778,19 @@ Expected: FAIL with "ModuleNotFoundError"
 **Step 3: Write minimal implementation**
 
 ```python
-# spotify_swimmer/orchestrator.py
+# music_ferry/orchestrator.py
 import asyncio
 import logging
 from pathlib import Path
 
-from spotify_swimmer.config import Config
-from spotify_swimmer.tracks_db import TracksDB
-from spotify_swimmer.spotify_api import SpotifyAPI, Track
-from spotify_swimmer.browser import SpotifyBrowser
-from spotify_swimmer.recorder import AudioRecorder
-from spotify_swimmer.tagger import tag_mp3
-from spotify_swimmer.transfer import TransferManager
-from spotify_swimmer.notify import Notifier, SyncResult, PlaylistResult
+from music_ferry.config import Config
+from music_ferry.tracks_db import TracksDB
+from music_ferry.spotify_api import SpotifyAPI, Track
+from music_ferry.browser import SpotifyBrowser
+from music_ferry.recorder import AudioRecorder
+from music_ferry.tagger import tag_mp3
+from music_ferry.transfer import TransferManager
+from music_ferry.notify import Notifier, SyncResult, PlaylistResult
 
 
 logger = logging.getLogger(__name__)
@@ -1954,7 +1954,7 @@ Expected: PASSED
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/orchestrator.py tests/test_orchestrator.py
+git add music_ferry/orchestrator.py tests/test_orchestrator.py
 git commit -m "feat: add main orchestrator for sync workflow"
 ```
 
@@ -1963,21 +1963,21 @@ git commit -m "feat: add main orchestrator for sync workflow"
 ## Task 11: CLI Entry Point
 
 **Files:**
-- Create: `spotify_swimmer/cli.py`
+- Create: `music_ferry/cli.py`
 - Create: `bin/sync.sh`
 
 **Step 1: Write the CLI module**
 
 ```python
-# spotify_swimmer/cli.py
+# music_ferry/cli.py
 import argparse
 import asyncio
 import logging
 import sys
 from pathlib import Path
 
-from spotify_swimmer.config import load_config
-from spotify_swimmer.orchestrator import Orchestrator
+from music_ferry.config import load_config
+from music_ferry.orchestrator import Orchestrator
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -1996,8 +1996,8 @@ def main() -> int:
     parser.add_argument(
         "-c", "--config",
         type=Path,
-        default=Path.home() / ".spotify-swimmer" / "config.yaml",
-        help="Path to config file (default: ~/.spotify-swimmer/config.yaml)",
+        default=Path.home() / ".music-ferry" / "config.yaml",
+        help="Path to config file (default: ~/.music-ferry/config.yaml)",
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -2065,7 +2065,7 @@ sleep 1
 cd "$(dirname "$0")/.."
 source .venv/bin/activate
 
-python -m spotify_swimmer.cli "$@"
+python -m music_ferry.cli "$@"
 EXIT_CODE=$?
 
 # Cleanup
@@ -2080,13 +2080,13 @@ Run: `chmod +x bin/sync.sh`
 
 **Step 4: Verify CLI works**
 
-Run: `source .venv/bin/activate && python -m spotify_swimmer.cli --help`
+Run: `source .venv/bin/activate && python -m music_ferry.cli --help`
 Expected: Shows help message with options
 
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/cli.py bin/sync.sh
+git add music_ferry/cli.py bin/sync.sh
 git commit -m "feat: add CLI entry point and systemd wrapper"
 ```
 
@@ -2095,22 +2095,22 @@ git commit -m "feat: add CLI entry point and systemd wrapper"
 ## Task 12: Systemd Integration
 
 **Files:**
-- Create: `systemd/spotify-swimmer.service`
-- Create: `systemd/spotify-swimmer.timer`
+- Create: `systemd/music-ferry.service`
+- Create: `systemd/music-ferry.timer`
 - Create: `scripts/install-systemd.sh`
 
 **Step 1: Create service unit file**
 
 ```ini
-# systemd/spotify-swimmer.service
+# systemd/music-ferry.service
 [Unit]
-Description=Spotify Swimmer - Download playlists for offline swimming
+Description=Music Ferry - Download playlists for offline swimming
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=%h/.spotify-swimmer/bin/sync.sh
+ExecStart=%h/.music-ferry/bin/sync.sh
 TimeoutStartSec=3600
 
 [Install]
@@ -2120,9 +2120,9 @@ WantedBy=default.target
 **Step 2: Create timer unit file**
 
 ```ini
-# systemd/spotify-swimmer.timer
+# systemd/music-ferry.timer
 [Unit]
-Description=Run Spotify Swimmer daily at 3am
+Description=Run Music Ferry daily at 3am
 
 [Timer]
 OnCalendar=*-*-* 03:00:00
@@ -2137,16 +2137,16 @@ WantedBy=timers.target
 ```bash
 #!/bin/bash
 # scripts/install-systemd.sh
-# Install systemd user units for Spotify Swimmer
+# Install systemd user units for Music Ferry
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-INSTALL_DIR="$HOME/.spotify-swimmer"
+INSTALL_DIR="$HOME/.music-ferry"
 SYSTEMD_DIR="$HOME/.config/systemd/user"
 
-echo "Installing Spotify Swimmer..."
+echo "Installing Music Ferry..."
 
 # Create installation directory
 mkdir -p "$INSTALL_DIR/bin"
@@ -2155,7 +2155,7 @@ mkdir -p "$INSTALL_DIR/cookies"
 mkdir -p "$INSTALL_DIR/logs"
 
 # Copy project files
-cp -r "$PROJECT_DIR/spotify_swimmer" "$INSTALL_DIR/"
+cp -r "$PROJECT_DIR/music_ferry" "$INSTALL_DIR/"
 cp -r "$PROJECT_DIR/.venv" "$INSTALL_DIR/"
 cp "$PROJECT_DIR/bin/sync.sh" "$INSTALL_DIR/bin/"
 chmod +x "$INSTALL_DIR/bin/sync.sh"
@@ -2177,7 +2177,7 @@ audio:
   format: "mp3"
 
 paths:
-  music_dir: "~/.spotify-swimmer/music"
+  music_dir: "~/.music-ferry/music"
   headphones_mount: "/media/YOUR_USERNAME/HEADPHONES"
   headphones_music_folder: "Music"
 
@@ -2198,8 +2198,8 @@ fi
 
 # Install systemd units
 mkdir -p "$SYSTEMD_DIR"
-sed "s|%h|$HOME|g" "$PROJECT_DIR/systemd/spotify-swimmer.service" > "$SYSTEMD_DIR/spotify-swimmer.service"
-cp "$PROJECT_DIR/systemd/spotify-swimmer.timer" "$SYSTEMD_DIR/"
+sed "s|%h|$HOME|g" "$PROJECT_DIR/systemd/music-ferry.service" > "$SYSTEMD_DIR/music-ferry.service"
+cp "$PROJECT_DIR/systemd/music-ferry.timer" "$SYSTEMD_DIR/"
 
 # Reload systemd
 systemctl --user daemon-reload
@@ -2211,12 +2211,12 @@ echo "Next steps:"
 echo "1. Edit config: $INSTALL_DIR/config.yaml"
 echo "2. Install Playwright browsers: $INSTALL_DIR/.venv/bin/playwright install chromium"
 echo "3. Login to Spotify manually once to save cookies"
-echo "4. Enable timer: systemctl --user enable --now spotify-swimmer.timer"
+echo "4. Enable timer: systemctl --user enable --now music-ferry.timer"
 echo ""
 echo "Commands:"
-echo "  Run manually:    systemctl --user start spotify-swimmer.service"
-echo "  View logs:       journalctl --user -u spotify-swimmer.service -f"
-echo "  Check timer:     systemctl --user list-timers spotify-swimmer.timer"
+echo "  Run manually:    systemctl --user start music-ferry.service"
+echo "  View logs:       journalctl --user -u music-ferry.service -f"
+echo "  Check timer:     systemctl --user list-timers music-ferry.timer"
 ```
 
 **Step 4: Make installation script executable**
@@ -2243,11 +2243,11 @@ Expected: All tests pass
 **Step 2: Verify package installs correctly**
 
 Run: `pip install -e .`
-Expected: Successfully installed spotify-swimmer
+Expected: Successfully installed music-ferry
 
 **Step 3: Verify CLI is accessible**
 
-Run: `spotify-swimmer --help`
+Run: `music-ferry --help`
 Expected: Shows help message
 
 **Step 4: Final commit**
@@ -2274,7 +2274,7 @@ After running the implementation plan, the user needs to:
    - Subscribe to topic
 
 3. **Initial Spotify Login**
-   - Run `spotify-swimmer` manually once
+   - Run `music-ferry` manually once
    - Browser will open for login
    - Cookies saved for future runs
 
@@ -2282,4 +2282,4 @@ After running the implementation plan, the user needs to:
    - Run: `playwright install chromium`
 
 5. **Enable systemd timer**
-   - Run: `systemctl --user enable --now spotify-swimmer.timer`
+   - Run: `systemctl --user enable --now music-ferry.timer`

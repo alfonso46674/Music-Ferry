@@ -13,7 +13,7 @@
 ## Task 1: Create Library Data Model
 
 **Files:**
-- Create: `spotify_swimmer/library.py`
+- Create: `music_ferry/library.py`
 - Test: `tests/test_library.py`
 
 **Step 1: Write the failing test for LibraryTrack dataclass**
@@ -21,7 +21,7 @@
 ```python
 # tests/test_library.py
 import pytest
-from spotify_swimmer.library import LibraryTrack, LibraryPlaylist, Library
+from music_ferry.library import LibraryTrack, LibraryPlaylist, Library
 
 
 class TestLibraryTrack:
@@ -63,12 +63,12 @@ class TestLibraryTrack:
 **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/test_library.py::TestLibraryTrack -v`
-Expected: FAIL with "No module named 'spotify_swimmer.library'"
+Expected: FAIL with "No module named 'music_ferry.library'"
 
 **Step 3: Write minimal implementation**
 
 ```python
-# spotify_swimmer/library.py
+# music_ferry/library.py
 from dataclasses import dataclass, field
 
 
@@ -101,7 +101,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/library.py tests/test_library.py
+git add music_ferry/library.py tests/test_library.py
 git commit -m "feat(library): add LibraryTrack and LibraryPlaylist dataclasses"
 ```
 
@@ -110,7 +110,7 @@ git commit -m "feat(library): add LibraryTrack and LibraryPlaylist dataclasses"
 ## Task 2: Create Library Class with Persistence
 
 **Files:**
-- Modify: `spotify_swimmer/library.py`
+- Modify: `music_ferry/library.py`
 - Test: `tests/test_library.py`
 
 **Step 1: Write the failing test for Library class**
@@ -187,7 +187,7 @@ Expected: FAIL with "cannot import name 'Library'"
 **Step 3: Write minimal implementation**
 
 ```python
-# Add to spotify_swimmer/library.py
+# Add to music_ferry/library.py
 import json
 from pathlib import Path
 from datetime import datetime
@@ -311,7 +311,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/library.py tests/test_library.py
+git add music_ferry/library.py tests/test_library.py
 git commit -m "feat(library): add Library class with persistence"
 ```
 
@@ -320,7 +320,7 @@ git commit -m "feat(library): add Library class with persistence"
 ## Task 3: Add Playlist Management to Library
 
 **Files:**
-- Modify: `spotify_swimmer/library.py`
+- Modify: `music_ferry/library.py`
 - Test: `tests/test_library.py`
 
 **Step 1: Write the failing test**
@@ -369,7 +369,7 @@ Expected: FAIL
 **Step 3: Write minimal implementation**
 
 ```python
-# Add to Library class in spotify_swimmer/library.py
+# Add to Library class in music_ferry/library.py
     def get_playlist(self, playlist_id: str) -> LibraryPlaylist | None:
         return self._playlists.get(playlist_id)
 
@@ -402,7 +402,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/library.py tests/test_library.py
+git add music_ferry/library.py tests/test_library.py
 git commit -m "feat(library): add playlist management and orphan detection"
 ```
 
@@ -411,7 +411,7 @@ git commit -m "feat(library): add playlist management and orphan detection"
 ## Task 4: Add Migration from Old tracks.json
 
 **Files:**
-- Modify: `spotify_swimmer/library.py`
+- Modify: `music_ferry/library.py`
 - Test: `tests/test_library.py`
 
 **Step 1: Write the failing test**
@@ -446,7 +446,7 @@ Expected: FAIL
 **Step 3: Write minimal implementation**
 
 ```python
-# Modify Library.__init__ in spotify_swimmer/library.py
+# Modify Library.__init__ in music_ferry/library.py
     def __init__(self, db_path: Path, migrate_from: Path | None = None):
         self.db_path = db_path
         self._tracks: dict[str, LibraryTrack] = {}
@@ -483,7 +483,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/library.py tests/test_library.py
+git add music_ferry/library.py tests/test_library.py
 git commit -m "feat(library): add migration from old tracks.json format"
 ```
 
@@ -492,7 +492,7 @@ git commit -m "feat(library): add migration from old tracks.json format"
 ## Task 5: Update CLI with Subcommands
 
 **Files:**
-- Modify: `spotify_swimmer/cli.py`
+- Modify: `music_ferry/cli.py`
 - Test: `tests/test_cli.py`
 
 **Step 1: Write the failing test**
@@ -501,7 +501,7 @@ git commit -m "feat(library): add migration from old tracks.json format"
 # tests/test_cli.py
 import pytest
 from unittest.mock import patch, MagicMock
-from spotify_swimmer.cli import main, parse_args
+from music_ferry.cli import main, parse_args
 
 
 class TestCLI:
@@ -541,14 +541,14 @@ Expected: FAIL with "cannot import name 'parse_args'"
 **Step 3: Write minimal implementation**
 
 ```python
-# spotify_swimmer/cli.py
+# music_ferry/cli.py
 import argparse
 import asyncio
 import logging
 import sys
 from pathlib import Path
 
-from spotify_swimmer.config import load_config
+from music_ferry.config import load_config
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -569,8 +569,8 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "-c", "--config",
         type=Path,
-        default=Path.home() / ".spotify-swimmer" / "config.yaml",
-        help="Path to config file (default: ~/.spotify-swimmer/config.yaml)",
+        default=Path.home() / ".music-ferry" / "config.yaml",
+        help="Path to config file (default: ~/.music-ferry/config.yaml)",
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -598,7 +598,7 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
 
 def cmd_sync(config, verbose: bool) -> int:
     """Run sync command - download new tracks, cleanup orphans."""
-    from spotify_swimmer.orchestrator import Orchestrator
+    from music_ferry.orchestrator import Orchestrator
 
     logger = logging.getLogger(__name__)
     orchestrator = Orchestrator(config)
@@ -624,7 +624,7 @@ def cmd_sync(config, verbose: bool) -> int:
 
 def cmd_transfer(config, verbose: bool) -> int:
     """Run transfer command - interactive headphones transfer."""
-    from spotify_swimmer.transfer import InteractiveTransfer
+    from music_ferry.transfer import InteractiveTransfer
 
     logger = logging.getLogger(__name__)
 
@@ -675,7 +675,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/cli.py tests/test_cli.py
+git add music_ferry/cli.py tests/test_cli.py
 git commit -m "feat(cli): add sync and transfer subcommands"
 ```
 
@@ -684,7 +684,7 @@ git commit -m "feat(cli): add sync and transfer subcommands"
 ## Task 6: Update Orchestrator to Use Library
 
 **Files:**
-- Modify: `spotify_swimmer/orchestrator.py`
+- Modify: `music_ferry/orchestrator.py`
 - Test: `tests/test_orchestrator.py`
 
 **Step 1: Write the failing test**
@@ -695,9 +695,9 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from spotify_swimmer.orchestrator import Orchestrator
-from spotify_swimmer.library import Library
-from spotify_swimmer.spotify_api import Track
+from music_ferry.orchestrator import Orchestrator
+from music_ferry.library import Library
+from music_ferry.spotify_api import Track
 
 
 class TestOrchestrator:
@@ -739,10 +739,10 @@ Expected: FAIL
 **Step 3: Write minimal implementation**
 
 ```python
-# Modify spotify_swimmer/orchestrator.py
+# Modify music_ferry/orchestrator.py
 # Change imports and __init__
 
-from spotify_swimmer.library import Library
+from music_ferry.library import Library
 
 class Orchestrator:
     def __init__(self, config: Config):
@@ -770,7 +770,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/orchestrator.py tests/test_orchestrator.py
+git add music_ferry/orchestrator.py tests/test_orchestrator.py
 git commit -m "refactor(orchestrator): use Library instead of TracksDB"
 ```
 
@@ -779,7 +779,7 @@ git commit -m "refactor(orchestrator): use Library instead of TracksDB"
 ## Task 7: Add Orphan Cleanup to Orchestrator
 
 **Files:**
-- Modify: `spotify_swimmer/orchestrator.py`
+- Modify: `music_ferry/orchestrator.py`
 - Test: `tests/test_orchestrator.py`
 
 **Step 1: Write the failing test**
@@ -813,7 +813,7 @@ Expected: FAIL
 **Step 3: Write minimal implementation**
 
 ```python
-# Add to Orchestrator class in spotify_swimmer/orchestrator.py
+# Add to Orchestrator class in music_ferry/orchestrator.py
     def _cleanup_orphaned_tracks(self) -> int:
         """Delete orphaned tracks from disk and library. Returns count deleted."""
         orphaned = self.library.get_orphaned_tracks()
@@ -843,7 +843,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/orchestrator.py tests/test_orchestrator.py
+git add music_ferry/orchestrator.py tests/test_orchestrator.py
 git commit -m "feat(orchestrator): add orphan cleanup functionality"
 ```
 
@@ -852,7 +852,7 @@ git commit -m "feat(orchestrator): add orphan cleanup functionality"
 ## Task 8: Update Orchestrator Sync to Track Playlist Membership
 
 **Files:**
-- Modify: `spotify_swimmer/orchestrator.py`
+- Modify: `music_ferry/orchestrator.py`
 - Test: `tests/test_orchestrator.py`
 
 **Step 1: Write the failing test**
@@ -888,7 +888,7 @@ Expected: FAIL
 **Step 3: Write minimal implementation**
 
 ```python
-# Add to Orchestrator class in spotify_swimmer/orchestrator.py
+# Add to Orchestrator class in music_ferry/orchestrator.py
     def _update_playlist_membership(
         self,
         playlist_id: str,
@@ -920,7 +920,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/orchestrator.py tests/test_orchestrator.py
+git add music_ferry/orchestrator.py tests/test_orchestrator.py
 git commit -m "feat(orchestrator): track playlist membership changes"
 ```
 
@@ -929,8 +929,8 @@ git commit -m "feat(orchestrator): track playlist membership changes"
 ## Task 9: Remove Auto-Transfer from Orchestrator
 
 **Files:**
-- Modify: `spotify_swimmer/orchestrator.py`
-- Modify: `spotify_swimmer/config.py`
+- Modify: `music_ferry/orchestrator.py`
+- Modify: `music_ferry/config.py`
 - Test: `tests/test_orchestrator.py`
 
 **Step 1: Write the failing test**
@@ -944,7 +944,7 @@ git commit -m "feat(orchestrator): track playlist membership changes"
         orchestrator = Orchestrator(mock_config)
 
         with patch.object(orchestrator, '_cleanup_orphaned_tracks', return_value=0):
-            with patch('spotify_swimmer.orchestrator.TransferManager') as mock_transfer:
+            with patch('music_ferry.orchestrator.TransferManager') as mock_transfer:
                 result = await orchestrator.run()
 
                 # TransferManager should never be instantiated during sync
@@ -961,7 +961,7 @@ Expected: FAIL (currently auto_transfer may still be called)
 **Step 3: Write minimal implementation**
 
 ```python
-# In spotify_swimmer/orchestrator.py, modify the run() method
+# In music_ferry/orchestrator.py, modify the run() method
 # Remove the auto_transfer section entirely:
 
     async def run(self) -> SyncResult:
@@ -1060,7 +1060,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/orchestrator.py tests/test_orchestrator.py
+git add music_ferry/orchestrator.py tests/test_orchestrator.py
 git commit -m "refactor(orchestrator): remove auto-transfer, sync-only workflow"
 ```
 
@@ -1069,7 +1069,7 @@ git commit -m "refactor(orchestrator): remove auto-transfer, sync-only workflow"
 ## Task 10: Add Playback Mode Selection
 
 **Files:**
-- Modify: `spotify_swimmer/orchestrator.py`
+- Modify: `music_ferry/orchestrator.py`
 - Test: `tests/test_orchestrator.py`
 
 **Step 1: Write the failing test**
@@ -1110,7 +1110,7 @@ Expected: FAIL
 **Step 3: Write minimal implementation**
 
 ```python
-# Add to Orchestrator class in spotify_swimmer/orchestrator.py
+# Add to Orchestrator class in music_ferry/orchestrator.py
     PLAYLIST_MODE_THRESHOLD = 0.7  # 70%
 
     @staticmethod
@@ -1133,7 +1133,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/orchestrator.py tests/test_orchestrator.py
+git add music_ferry/orchestrator.py tests/test_orchestrator.py
 git commit -m "feat(orchestrator): add playback mode selection logic"
 ```
 
@@ -1142,7 +1142,7 @@ git commit -m "feat(orchestrator): add playback mode selection logic"
 ## Task 11: Add Playlist Playback to Browser
 
 **Files:**
-- Modify: `spotify_swimmer/browser.py`
+- Modify: `music_ferry/browser.py`
 - Test: `tests/test_browser.py`
 
 **Step 1: Write the failing test**
@@ -1190,7 +1190,7 @@ Expected: FAIL
 **Step 3: Write minimal implementation**
 
 ```python
-# Add to SpotifyBrowser class in spotify_swimmer/browser.py
+# Add to SpotifyBrowser class in music_ferry/browser.py
     NOW_PLAYING_SELECTOR = '[data-testid="now-playing-widget"] a[href*="/track/"]'
 
     async def play_playlist(self, playlist_id: str) -> None:
@@ -1240,7 +1240,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/browser.py tests/test_browser.py
+git add music_ferry/browser.py tests/test_browser.py
 git commit -m "feat(browser): add playlist playback and track change detection"
 ```
 
@@ -1249,7 +1249,7 @@ git commit -m "feat(browser): add playlist playback and track change detection"
 ## Task 12: Implement Playlist Mode Recording in Orchestrator
 
 **Files:**
-- Modify: `spotify_swimmer/orchestrator.py`
+- Modify: `music_ferry/orchestrator.py`
 - Test: `tests/test_orchestrator.py`
 
 **Step 1: Write the failing test**
@@ -1309,7 +1309,7 @@ Expected: FAIL
 **Step 3: Write minimal implementation**
 
 ```python
-# Add to Orchestrator class in spotify_swimmer/orchestrator.py
+# Add to Orchestrator class in music_ferry/orchestrator.py
     async def _record_playlist_mode(
         self,
         playlist_id: str,
@@ -1392,7 +1392,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/orchestrator.py tests/test_orchestrator.py
+git add music_ferry/orchestrator.py tests/test_orchestrator.py
 git commit -m "feat(orchestrator): implement playlist mode recording"
 ```
 
@@ -1401,14 +1401,14 @@ git commit -m "feat(orchestrator): implement playlist mode recording"
 ## Task 13: Create Interactive Transfer Module
 
 **Files:**
-- Modify: `spotify_swimmer/transfer.py`
+- Modify: `music_ferry/transfer.py`
 - Test: `tests/test_transfer.py`
 
 **Step 1: Write the failing test**
 
 ```python
 # Add to tests/test_transfer.py
-from spotify_swimmer.transfer import InteractiveTransfer, TransferStatus
+from music_ferry.transfer import InteractiveTransfer, TransferStatus
 
 
 class TestInteractiveTransfer:
@@ -1472,9 +1472,9 @@ Expected: FAIL
 **Step 3: Write minimal implementation**
 
 ```python
-# Add to spotify_swimmer/transfer.py
+# Add to music_ferry/transfer.py
 from dataclasses import dataclass
-from spotify_swimmer.library import Library
+from music_ferry.library import Library
 
 
 @dataclass
@@ -1564,7 +1564,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/transfer.py tests/test_transfer.py
+git add music_ferry/transfer.py tests/test_transfer.py
 git commit -m "feat(transfer): add InteractiveTransfer with status computation"
 ```
 
@@ -1573,7 +1573,7 @@ git commit -m "feat(transfer): add InteractiveTransfer with status computation"
 ## Task 14: Add Interactive Menu to Transfer
 
 **Files:**
-- Modify: `spotify_swimmer/transfer.py`
+- Modify: `music_ferry/transfer.py`
 - Test: `tests/test_transfer.py`
 
 **Step 1: Write the failing test**
@@ -1630,7 +1630,7 @@ Expected: FAIL
 **Step 3: Write minimal implementation**
 
 ```python
-# Add to InteractiveTransfer class in spotify_swimmer/transfer.py
+# Add to InteractiveTransfer class in music_ferry/transfer.py
     def sync_changes(self) -> tuple[int, int]:
         """Sync changes: copy new files, remove orphans. Returns (added, removed)."""
         local_files = self._get_local_files()
@@ -1671,7 +1671,7 @@ Expected: FAIL
         """Format status for terminal display."""
         lines = [
             "═" * 55,
-            "  Spotify Swimmer - Transfer to Headphones",
+            "  Music Ferry - Transfer to Headphones",
             "═" * 55,
             "",
             f"Headphones: {self.config.paths.headphones_mount} (connected)",
@@ -1762,7 +1762,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add spotify_swimmer/transfer.py tests/test_transfer.py
+git add music_ferry/transfer.py tests/test_transfer.py
 git commit -m "feat(transfer): add interactive menu with sync/reset options"
 ```
 
@@ -1771,7 +1771,7 @@ git commit -m "feat(transfer): add interactive menu with sync/reset options"
 ## Task 15: Update Orchestrator to Use Playback Mode Selection
 
 **Files:**
-- Modify: `spotify_swimmer/orchestrator.py`
+- Modify: `music_ferry/orchestrator.py`
 - Test: `tests/test_orchestrator.py`
 
 **Step 1: Write the failing test**
@@ -1793,7 +1793,7 @@ class TestOrchestratorPlaybackIntegration:
 **Step 2: Update _sync_playlist_tracks to use mode selection**
 
 ```python
-# Modify _sync_playlist_tracks in spotify_swimmer/orchestrator.py
+# Modify _sync_playlist_tracks in music_ferry/orchestrator.py
     async def _sync_playlist_tracks(
         self,
         playlist: PlaylistConfig,
@@ -1851,7 +1851,7 @@ Expected: PASS
 **Step 4: Commit**
 
 ```bash
-git add spotify_swimmer/orchestrator.py tests/test_orchestrator.py
+git add music_ferry/orchestrator.py tests/test_orchestrator.py
 git commit -m "feat(orchestrator): integrate playback mode selection"
 ```
 
@@ -1860,18 +1860,18 @@ git commit -m "feat(orchestrator): integrate playback mode selection"
 ## Task 16: Remove Old TracksDB and Update Imports
 
 **Files:**
-- Delete: `spotify_swimmer/tracks_db.py`
+- Delete: `music_ferry/tracks_db.py`
 - Delete: `tests/test_tracks_db.py`
 - Modify: Any files still importing TracksDB
 
 **Step 1: Search for remaining TracksDB imports**
 
-Run: `grep -r "tracks_db\|TracksDB" spotify_swimmer/ tests/`
+Run: `grep -r "tracks_db\|TracksDB" music_ferry/ tests/`
 
 **Step 2: Remove old files**
 
 ```bash
-rm spotify_swimmer/tracks_db.py
+rm music_ferry/tracks_db.py
 rm tests/test_tracks_db.py
 ```
 
@@ -1892,13 +1892,13 @@ git commit -m "refactor: remove deprecated TracksDB module"
 ## Task 17: Update Config to Remove auto_transfer
 
 **Files:**
-- Modify: `spotify_swimmer/config.py`
+- Modify: `music_ferry/config.py`
 - Test: `tests/test_config.py`
 
 **Step 1: Remove auto_transfer from BehaviorConfig**
 
 ```python
-# In spotify_swimmer/config.py, update BehaviorConfig
+# In music_ferry/config.py, update BehaviorConfig
 @dataclass
 class BehaviorConfig:
     skip_existing: bool = True
@@ -1911,7 +1911,7 @@ class BehaviorConfig:
 **Step 3: Commit**
 
 ```bash
-git add spotify_swimmer/config.py tests/test_config.py
+git add music_ferry/config.py tests/test_config.py
 git commit -m "refactor(config): remove auto_transfer option"
 ```
 
@@ -1930,10 +1930,10 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from spotify_swimmer.config import Config
-from spotify_swimmer.library import Library
-from spotify_swimmer.orchestrator import Orchestrator
-from spotify_swimmer.transfer import InteractiveTransfer
+from music_ferry.config import Config
+from music_ferry.library import Library
+from music_ferry.orchestrator import Orchestrator
+from music_ferry.transfer import InteractiveTransfer
 
 
 class TestFullWorkflow:

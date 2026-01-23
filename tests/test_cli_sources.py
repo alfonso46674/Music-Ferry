@@ -1,6 +1,6 @@
 # tests/test_cli_sources.py
 import pytest
-from spotify_swimmer.cli import parse_args
+from music_ferry.cli import parse_args
 
 
 class TestCLISourceFlags:

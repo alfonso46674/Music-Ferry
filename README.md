@@ -1,8 +1,8 @@
-# Spotify Swimmer
+# Music Ferry
 
-[![CI](https://github.com/yourusername/spotify-swimmer/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/spotify-swimmer/actions/workflows/ci.yml)
+[![CI](https://github.com/yourusername/music-ferry/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/music-ferry/actions/workflows/ci.yml)
 
-Download Spotify and YouTube playlists to MP3 files for offline listening on waterproof headphones while swimming.
+Music Ferry - ferrying music to your headphones. Download Spotify and YouTube playlists to MP3 files for offline listening.
 
 ## How It Works
 
@@ -33,8 +33,8 @@ Download Spotify and YouTube playlists to MP3 files for offline listening on wat
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/spotify-swimmer.git
-cd spotify-swimmer
+git clone https://github.com/yourusername/music-ferry.git
+cd music-ferry
 
 # Install the package (uses pipx if available, otherwise pip --user)
 ./scripts/install.sh
@@ -50,8 +50,8 @@ playwright install chromium
 
 ```bash
 # Clone and create virtual environment
-git clone https://github.com/yourusername/spotify-swimmer.git
-cd spotify-swimmer
+git clone https://github.com/yourusername/music-ferry.git
+cd music-ferry
 python3 -m venv .venv
 source .venv/bin/activate
 
@@ -72,7 +72,7 @@ playwright install chromium
 
 **Check your install type:**
 ```bash
-pip show spotify-swimmer | grep Location
+pip show music-ferry | grep Location
 # If Location is your project folder → editable install
 # If Location is site-packages → regular install
 ```
@@ -96,11 +96,11 @@ pip install .
 # No need to uninstall first - it overwrites automatically
 ```
 
-**Systemd timer:** No changes needed when updating code. The timer just runs the `spotify-swimmer` command, which uses whatever version is currently installed.
+**Systemd timer:** No changes needed when updating code. The timer just runs the `music-ferry` command, which uses whatever version is currently installed.
 
 ## Configuration
 
-Edit `~/.spotify-swimmer/config.yaml`:
+Edit `~/.music-ferry/config.yaml`:
 
 ```yaml
 spotify:
@@ -127,7 +127,7 @@ audio:
   format: "mp3"
 
 paths:
-  music_dir: "~/.spotify-swimmer"
+  music_dir: "~/.music-ferry"
   headphones_mount: "/media/yourusername/HEADPHONES"
   headphones_music_folder: "Music"
 
@@ -165,7 +165,7 @@ YouTube playlists are downloaded directly using yt-dlp - no browser automation r
 
 1. Set `youtube.enabled: true` in your config
 2. Add playlists under `youtube.playlists` with name and URL
-3. Run `spotify-swimmer sync` or `spotify-swimmer sync --youtube`
+3. Run `music-ferry sync` or `music-ferry sync --youtube`
 
 **Source flags:**
 
@@ -177,7 +177,7 @@ YouTube playlists are downloaded directly using yt-dlp - no browser automation r
 
 Tracks are organized by source:
 ```
-~/.spotify-swimmer/
+~/.music-ferry/
 ├── config.yaml
 ├── cookies/           # Spotify login cookies
 ├── spotify/
@@ -192,35 +192,35 @@ Tracks are organized by source:
 
 ### Commands
 
-Spotify Swimmer has two separate commands:
+Music Ferry has two separate commands:
 
 - **`sync`** - Downloads new tracks and cleans up orphaned files
 - **`transfer`** - Interactive menu to transfer music to headphones
 
 ```bash
 # Sync both Spotify and YouTube (default)
-spotify-swimmer sync
+music-ferry sync
 
 # Sync only Spotify
-spotify-swimmer sync --spotify
+music-ferry sync --spotify
 
 # Sync only YouTube
-spotify-swimmer sync --youtube
+music-ferry sync --youtube
 
 # Transfer all tracks to headphones
-spotify-swimmer transfer
+music-ferry transfer
 
 # Transfer to headphones (auto-select to fit size limits)
-spotify-swimmer transfer --auto
+music-ferry transfer --auto
 
 # Transfer only Spotify tracks
-spotify-swimmer transfer --spotify
+music-ferry transfer --spotify
 
 # With verbose logging
-spotify-swimmer -v sync
+music-ferry -v sync
 
 # With custom config path
-spotify-swimmer -c /path/to/config.yaml sync
+music-ferry -c /path/to/config.yaml sync
 ```
 
 ### Sync Command
@@ -243,7 +243,7 @@ The `transfer` command provides an interactive menu:
 
 The first time you run, you'll need to log into Spotify:
 
-1. Run `spotify-swimmer sync` manually
+1. Run `music-ferry sync` manually
 2. The browser will open (or check logs for any login prompts)
 3. Cookies are saved for future automated runs
 
@@ -256,19 +256,19 @@ Install the systemd timer for automatic daily syncs:
 ./scripts/install-systemd.sh
 
 # Enable the timer
-systemctl --user enable --now spotify-swimmer.timer
+systemctl --user enable --now music-ferry.timer
 
 # Check timer status
-systemctl --user list-timers spotify-swimmer.timer
+systemctl --user list-timers music-ferry.timer
 
 # View logs
-journalctl --user -u spotify-swimmer.service -f
+journalctl --user -u music-ferry.service -f
 
 # Run sync manually via systemd
-systemctl --user start spotify-swimmer.service
+systemctl --user start music-ferry.service
 
 # Disable the timer
-systemctl --user disable spotify-swimmer.timer
+systemctl --user disable music-ferry.timer
 ```
 
 Transfer is always manual (your headphones may not be connected during automated runs).
@@ -276,8 +276,8 @@ Transfer is always manual (your headphones may not be connected during automated
 ## Project Structure
 
 ```
-spotify-swimmer/
-├── spotify_swimmer/
+music-ferry/
+├── music_ferry/
 │   ├── __init__.py
 │   ├── config.py        # YAML config loading
 │   ├── library.py       # Track/playlist persistence
@@ -306,14 +306,24 @@ spotify-swimmer/
 # Activate development environment
 source .venv/bin/activate
 
+# Build package
+make build
+
 # Run tests
-pytest -v
+make test
+
+# Lint and typecheck
+make lint
+make typecheck
+
+# Format code
+make format
 
 # Run specific test file
 pytest tests/test_config.py -v
 
 # Run with coverage
-pytest --cov=spotify_swimmer
+pytest --cov=music_ferry
 ```
 
 ### Releasing a New Version
@@ -358,7 +368,7 @@ This project uses GitHub Actions for continuous integration:
 
 ### "Login expired" error
 
-Run `spotify-swimmer sync` manually to re-authenticate. Cookies are saved to `~/.spotify-swimmer/cookies/`.
+Run `music-ferry sync` manually to re-authenticate. Cookies are saved to `~/.music-ferry/cookies/`.
 
 ### No audio recorded
 

@@ -1,4 +1,4 @@
-# spotify_swimmer/library.py
+# music_ferry/library.py
 import json
 from dataclasses import dataclass, field
 from datetime import datetime

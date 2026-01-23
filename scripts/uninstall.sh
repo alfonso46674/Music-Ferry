@@ -1,25 +1,25 @@
 #!/bin/bash
 # scripts/uninstall.sh
-# Uninstall Spotify Swimmer
+# Uninstall Music Ferry
 
 set -e
 
-DATA_DIR="$HOME/.spotify-swimmer"
+DATA_DIR="$HOME/.music-ferry"
 SYSTEMD_DIR="$HOME/.config/systemd/user"
 
-echo "Uninstalling Spotify Swimmer..."
+echo "Uninstalling Music Ferry..."
 
 # Stop and disable systemd units if they exist
-if [ -f "$SYSTEMD_DIR/spotify-swimmer.timer" ]; then
+if [ -f "$SYSTEMD_DIR/music-ferry.timer" ]; then
     echo "Stopping systemd timer..."
-    systemctl --user stop spotify-swimmer.timer 2>/dev/null || true
-    systemctl --user disable spotify-swimmer.timer 2>/dev/null || true
+    systemctl --user stop music-ferry.timer 2>/dev/null || true
+    systemctl --user disable music-ferry.timer 2>/dev/null || true
 fi
 
-if [ -f "$SYSTEMD_DIR/spotify-swimmer.service" ]; then
+if [ -f "$SYSTEMD_DIR/music-ferry.service" ]; then
     echo "Removing systemd units..."
-    rm -f "$SYSTEMD_DIR/spotify-swimmer.service"
-    rm -f "$SYSTEMD_DIR/spotify-swimmer.timer"
+    rm -f "$SYSTEMD_DIR/music-ferry.service"
+    rm -f "$SYSTEMD_DIR/music-ferry.timer"
     systemctl --user daemon-reload
 fi
 
@@ -28,7 +28,7 @@ if [ -f "$DATA_DIR/.install-method" ]; then
     INSTALL_METHOD=$(cat "$DATA_DIR/.install-method")
 else
     # Try to detect
-    if pipx list 2>/dev/null | grep -q spotify-swimmer; then
+    if pipx list 2>/dev/null | grep -q music-ferry; then
         INSTALL_METHOD="pipx"
     else
         INSTALL_METHOD="pip"
@@ -37,9 +37,9 @@ fi
 
 echo "Uninstalling package (installed via $INSTALL_METHOD)..."
 if [ "$INSTALL_METHOD" = "pipx" ]; then
-    pipx uninstall spotify-swimmer 2>/dev/null || true
+    pipx uninstall music-ferry 2>/dev/null || true
 else
-    pip uninstall -y spotify-swimmer 2>/dev/null || true
+    pip uninstall -y music-ferry 2>/dev/null || true
 fi
 
 # Ask about data directory

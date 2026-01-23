@@ -1,4 +1,4 @@
-# spotify_swimmer/transfer.py
+# music_ferry/transfer.py
 import logging
 import shutil
 import subprocess
@@ -6,7 +6,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from spotify_swimmer.library import Library
+from music_ferry.library import Library
 
 logger = logging.getLogger(__name__)
 

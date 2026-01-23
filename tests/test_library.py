@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from spotify_swimmer.library import LibraryTrack, LibraryPlaylist, Library
+from music_ferry.library import LibraryTrack, LibraryPlaylist, Library
 
 
 class TestLibraryTrack:

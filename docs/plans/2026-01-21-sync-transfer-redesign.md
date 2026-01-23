@@ -45,13 +45,13 @@ Key points:
 
 ```bash
 # Automatic sync (runs at 5-8am via systemd)
-spotify-swimmer sync
-spotify-swimmer sync -v              # verbose
-spotify-swimmer sync -c /path/to/config.yaml
+music-ferry sync
+music-ferry sync -v              # verbose
+music-ferry sync -c /path/to/config.yaml
 
 # Interactive transfer (run manually when headphones connected)
-spotify-swimmer transfer
-spotify-swimmer transfer -v
+music-ferry transfer
+music-ferry transfer -v
 ```
 
 ### Sync Command
@@ -71,7 +71,7 @@ Interactive menu when headphones are connected.
 
 ```
 ═══════════════════════════════════════════════════════
-  Spotify Swimmer - Transfer to Headphones
+  Music Ferry - Transfer to Headphones
 ═══════════════════════════════════════════════════════
 
 Headphones: /media/alfonso/HEADPHONES (connected)
@@ -187,7 +187,7 @@ No separate "headphones database" - filesystem is source of truth.
 ## File Structure
 
 ```
-~/.spotify-swimmer/
+~/.music-ferry/
 ├── config.yaml
 ├── library.json         # Enhanced track + playlist data
 ├── cookies/

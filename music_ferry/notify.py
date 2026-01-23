@@ -1,4 +1,4 @@
-# spotify_swimmer/notify.py
+# music_ferry/notify.py
 from dataclasses import dataclass, field
 
 import requests
@@ -58,12 +58,12 @@ class Notifier:
 
     def _format_message(self, result: SyncResult) -> tuple[str, str]:
         if result.is_failure:
-            title = "Spotify Swimmer Failed"
+            title = "Music Ferry Failed"
             body = f"{result.global_error or 'Sync failed'}\n\nPlaylists:\n"
             for p in result.playlists:
                 body += f"- {p.name}: Not synced\n"
         elif result.has_errors:
-            title = "Spotify Swimmer Partial"
+            title = "Music Ferry Partial"
             body = f"Synced {result.total_tracks} new tracks. Some issues occurred.\n\nPlaylists:\n"
             for p in result.playlists:
                 if p.error:
@@ -73,7 +73,7 @@ class Notifier:
             if result.transferred:
                 body += "\nTransferred to headphones."
         else:
-            title = "Spotify Swimmer Complete"
+            title = "Music Ferry Complete"
             if result.total_tracks == 0:
                 body = "Already up to date. No new tracks to sync."
             else:

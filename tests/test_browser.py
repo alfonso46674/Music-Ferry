@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
 
-from spotify_swimmer.browser import SpotifyBrowser
+from music_ferry.browser import SpotifyBrowser
 
 
 class TestSpotifyBrowser:
@@ -25,7 +25,7 @@ class TestSpotifyBrowser:
 
 class TestSpotifyBrowserIntegration:
     @pytest.mark.asyncio
-    @patch("spotify_swimmer.browser.async_playwright")
+    @patch("music_ferry.browser.async_playwright")
     async def test_launch_and_close(self, mock_playwright):
         mock_pw = AsyncMock()
         mock_browser = AsyncMock()
@@ -51,7 +51,7 @@ class TestSpotifyBrowserIntegration:
         mock_browser.close.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("spotify_swimmer.browser.async_playwright")
+    @patch("music_ferry.browser.async_playwright")
     async def test_play_track(self, mock_playwright):
         mock_pw = AsyncMock()
         mock_browser = AsyncMock()
@@ -82,7 +82,7 @@ class TestSpotifyBrowserIntegration:
         mock_locator.click.assert_called()
 
     @pytest.mark.asyncio
-    @patch("spotify_swimmer.browser.async_playwright")
+    @patch("music_ferry.browser.async_playwright")
     async def test_play_playlist(self, mock_playwright):
         mock_pw = AsyncMock()
         mock_browser = AsyncMock()
@@ -113,7 +113,7 @@ class TestSpotifyBrowserIntegration:
         mock_locator.click.assert_called()
 
     @pytest.mark.asyncio
-    @patch("spotify_swimmer.browser.async_playwright")
+    @patch("music_ferry.browser.async_playwright")
     async def test_skip_to_next(self, mock_playwright):
         mock_pw = AsyncMock()
         mock_browser = AsyncMock()
@@ -183,7 +183,7 @@ class TestWaitForTrackChange:
         async def mock_sleep(duration):
             browser.page.url = "https://open.spotify.com/track/track2"
 
-        with patch("spotify_swimmer.browser.asyncio.sleep", side_effect=mock_sleep):
+        with patch("music_ferry.browser.asyncio.sleep", side_effect=mock_sleep):
             new_track = await browser.wait_for_track_change("track1", timeout_seconds=10)
 
         assert new_track == "track2"
@@ -194,7 +194,7 @@ class TestWaitForTrackChange:
         browser.page = MagicMock()
         browser.page.url = "https://open.spotify.com/track/track1"
 
-        with patch("spotify_swimmer.browser.asyncio.sleep", new_callable=AsyncMock):
+        with patch("music_ferry.browser.asyncio.sleep", new_callable=AsyncMock):
             new_track = await browser.wait_for_track_change("track1", timeout_seconds=0.1)
 
         assert new_track is None

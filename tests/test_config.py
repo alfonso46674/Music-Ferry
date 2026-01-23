@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from spotify_swimmer.config import Config, load_config
+from music_ferry.config import Config, load_config
 
 
 class TestConfig:
@@ -22,7 +22,7 @@ class TestConfig:
             ],
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer/music",
+                "music_dir": "~/.music-ferry/music",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -46,7 +46,7 @@ class TestConfig:
         assert len(config.spotify.playlists) == 1
         assert config.spotify.playlists[0].name == "Test Playlist"
         assert config.audio.bitrate == 192
-        assert config.paths.music_dir == Path.home() / ".spotify-swimmer" / "music"
+        assert config.paths.music_dir == Path.home() / ".music-ferry" / "music"
         assert config.notifications.ntfy_topic == "test-topic"
         assert config.behavior.skip_existing is True
         assert config.transfer.reserve_free_gb == 0.0
@@ -79,7 +79,7 @@ class TestConfig:
             ],
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer/music",
+                "music_dir": "~/.music-ferry/music",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -120,7 +120,7 @@ class TestYouTubeConfig:
             },
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer",
+                "music_dir": "~/.music-ferry",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -158,7 +158,7 @@ class TestYouTubeConfig:
             },
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer",
+                "music_dir": "~/.music-ferry",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -189,7 +189,7 @@ class TestYouTubeConfig:
             ],
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer",
+                "music_dir": "~/.music-ferry",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -222,7 +222,7 @@ class TestYouTubeConfig:
             },
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer",
+                "music_dir": "~/.music-ferry",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },
@@ -259,7 +259,7 @@ class TestYouTubePlaylistConfig:
             },
             "audio": {"bitrate": 192, "format": "mp3"},
             "paths": {
-                "music_dir": "~/.spotify-swimmer",
+                "music_dir": "~/.music-ferry",
                 "headphones_mount": "/media/user/HEADPHONES",
                 "headphones_music_folder": "Music",
             },

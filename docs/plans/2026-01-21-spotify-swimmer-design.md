@@ -1,4 +1,4 @@
-# Spotify Swimmer - Design Document
+# Music Ferry - Design Document
 
 **Date**: 2026-01-21
 **Purpose**: Download Spotify playlists to waterproof headphones for offline swimming
@@ -93,7 +93,7 @@ A simple JSON file mapping Spotify track IDs to local filenames. Used to determi
 ### Local Storage Structure
 
 ```
-~/.spotify-swimmer/
+~/.music-ferry/
 ├── config.yaml              # Configuration file
 ├── tracks.json              # Database of downloaded tracks
 ├── cookies/                 # Browser session data
@@ -118,7 +118,7 @@ A simple JSON file mapping Spotify track IDs to local filenames. Used to determi
 ```
 1. Detect if headphones mounted (check configured mount point)
 2. If mounted:
-   ├─ Copy all MP3s from ~/.spotify-swimmer/music/ to /mount/Music/
+   ├─ Copy all MP3s from ~/.music-ferry/music/ to /mount/Music/
    ├─ Use rsync for efficiency (only copies new/changed files)
    └─ Safely unmount when done
 3. If not mounted:
@@ -140,7 +140,7 @@ Flat folder on headphones - all MP3s in one `/Music/` folder. Simple and univers
 ## Configuration
 
 ```yaml
-# ~/.spotify-swimmer/config.yaml
+# ~/.music-ferry/config.yaml
 
 spotify:
   client_id: "your_spotify_app_client_id"
@@ -159,7 +159,7 @@ audio:
   format: "mp3"
 
 paths:
-  music_dir: "~/.spotify-swimmer/music"
+  music_dir: "~/.music-ferry/music"
   headphones_mount: "/media/alfonso/HEADPHONES"
   headphones_music_folder: "Music"  # folder on headphones
 
@@ -187,16 +187,16 @@ behavior:
 ### Service Unit
 
 ```ini
-# ~/.config/systemd/user/spotify-swimmer.service
+# ~/.config/systemd/user/music-ferry.service
 
 [Unit]
-Description=Spotify Swimmer - Download playlists for offline swimming
+Description=Music Ferry - Download playlists for offline swimming
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/home/alfonso/.spotify-swimmer/bin/sync.sh
+ExecStart=/home/alfonso/.music-ferry/bin/sync.sh
 Environment=DISPLAY=:99
 TimeoutStartSec=3600  # 1 hour max runtime
 
@@ -207,10 +207,10 @@ WantedBy=default.target
 ### Timer Unit
 
 ```ini
-# ~/.config/systemd/user/spotify-swimmer.timer
+# ~/.config/systemd/user/music-ferry.timer
 
 [Unit]
-Description=Run Spotify Swimmer daily at 3am
+Description=Run Music Ferry daily at 3am
 
 [Timer]
 OnCalendar=*-*-* 03:00:00
@@ -231,21 +231,21 @@ WantedBy=timers.target
 
 ```bash
 # Enable automatic scheduling
-systemctl --user enable spotify-swimmer.timer
-systemctl --user start spotify-swimmer.timer
+systemctl --user enable music-ferry.timer
+systemctl --user start music-ferry.timer
 
 # Check when next run is scheduled
-systemctl --user list-timers spotify-swimmer.timer
+systemctl --user list-timers music-ferry.timer
 
 # Run manually (for testing or immediate sync)
-systemctl --user start spotify-swimmer.service
+systemctl --user start music-ferry.service
 
 # View logs
-journalctl --user -u spotify-swimmer.service -f
+journalctl --user -u music-ferry.service -f
 
 # Disable scheduling
-systemctl --user stop spotify-swimmer.timer
-systemctl --user disable spotify-swimmer.timer
+systemctl --user stop music-ferry.timer
+systemctl --user disable music-ferry.timer
 ```
 
 ---
@@ -271,7 +271,7 @@ Notifications sent via Ntfy with per-playlist breakdown.
 ### Success (if enabled)
 
 ```
-Title: 🏊 Spotify Swimmer Complete
+Title: 🏊 Music Ferry Complete
 Body:
 Synced 12 new tracks. Transferred to headphones.
 
@@ -283,7 +283,7 @@ Playlists:
 ### Partial Success
 
 ```
-Title: ⚠️ Spotify Swimmer Partial
+Title: ⚠️ Music Ferry Partial
 Body:
 Synced 5 new tracks. Some issues occurred.
 
@@ -297,7 +297,7 @@ Transferred to headphones.
 ### Failure
 
 ```
-Title: ❌ Spotify Swimmer Failed
+Title: ❌ Music Ferry Failed
 Body:
 Login expired - please re-authenticate.
 
@@ -309,7 +309,7 @@ Playlists:
 ### Logging
 
 - All output goes to stdout/stderr (captured by journalctl)
-- Detailed logs in `~/.spotify-swimmer/logs/sync.log`
+- Detailed logs in `~/.music-ferry/logs/sync.log`
 - Log rotation: keep last 7 days
 
 ---
@@ -344,8 +344,8 @@ pipewire            # Audio routing
 ## Project Structure
 
 ```
-spotify-swimmer/
-├── spotify_swimmer/
+music-ferry/
+├── music_ferry/
 │   ├── __init__.py
 │   ├── config.py        # Config loading & validation
 │   ├── spotify_api.py   # Playlist metadata fetching

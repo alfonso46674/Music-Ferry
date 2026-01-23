@@ -1,4 +1,4 @@
-# spotify_swimmer/spotify_api.py
+# music_ferry/spotify_api.py
 from dataclasses import dataclass
 
 import spotipy

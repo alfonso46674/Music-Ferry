@@ -5,7 +5,7 @@ import asyncio
 
 import pytest
 
-from spotify_swimmer.recorder import AudioRecorder, SINK_NAMES
+from music_ferry.recorder import AudioRecorder, SINK_NAMES
 
 
 class TestAudioRecorder:
@@ -18,7 +18,7 @@ class TestAudioRecorder:
         recorder = AudioRecorder(bitrate=192, sink_name="custom_sink")
         assert recorder.sink_name == "custom_sink"
 
-    @patch("spotify_swimmer.recorder.subprocess.run")
+    @patch("music_ferry.recorder.subprocess.run")
     def test_create_virtual_sink(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="123")
 
@@ -31,7 +31,7 @@ class TestAudioRecorder:
         assert "load-module" in call_args
         assert "module-null-sink" in call_args
 
-    @patch("spotify_swimmer.recorder.subprocess.run")
+    @patch("music_ferry.recorder.subprocess.run")
     def test_destroy_virtual_sink(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
 
@@ -44,7 +44,7 @@ class TestAudioRecorder:
         assert "pactl" in call_args
         assert "unload-module" in call_args
 
-    @patch("spotify_swimmer.recorder.subprocess.Popen")
+    @patch("music_ferry.recorder.subprocess.Popen")
     def test_start_recording(self, mock_popen, tmp_path: Path):
         mock_process = MagicMock()
         mock_popen.return_value = mock_process
@@ -60,7 +60,7 @@ class TestAudioRecorder:
         assert "-b:a" in call_args
         assert "192k" in call_args
 
-    @patch("spotify_swimmer.recorder.subprocess.Popen")
+    @patch("music_ferry.recorder.subprocess.Popen")
     def test_stop_recording(self, mock_popen, tmp_path: Path):
         mock_process = MagicMock()
         mock_process.poll.return_value = None

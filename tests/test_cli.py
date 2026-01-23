@@ -2,7 +2,7 @@
 import pytest
 from pathlib import Path
 
-from spotify_swimmer.cli import parse_args
+from music_ferry.cli import parse_args
 
 
 class TestCLI:

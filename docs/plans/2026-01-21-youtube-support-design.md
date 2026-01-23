@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add YouTube playlist support to Spotify Swimmer, allowing users to download YouTube playlists as MP3s alongside Spotify playlists. Both sources sync to the same headphones with tracks mixed in a flat folder.
+Add YouTube playlist support to Music Ferry, allowing users to download YouTube playlists as MP3s alongside Spotify playlists. Both sources sync to the same headphones with tracks mixed in a flat folder.
 
 ## Key Decisions
 
@@ -23,7 +23,7 @@ Add YouTube playlist support to Spotify Swimmer, allowing users to download YouT
 ### Directory Structure
 
 ```
-~/.spotify-swimmer/
+~/.music-ferry/
 ├── config.yaml
 ├── cookies/                    # Spotify browser cookies
 ├── spotify/
@@ -37,7 +37,7 @@ Add YouTube playlist support to Spotify Swimmer, allowing users to download YouT
 ### Module Structure
 
 ```
-spotify_swimmer/
+music_ferry/
 ├── youtube/                    # NEW: YouTube-specific modules
 │   ├── __init__.py
 │   └── downloader.py           # yt-dlp wrapper
@@ -82,7 +82,7 @@ audio:
   format: "mp3"
 
 paths:
-  music_dir: "~/.spotify-swimmer"  # base dir, /spotify and /youtube added
+  music_dir: "~/.music-ferry"  # base dir, /spotify and /youtube added
   headphones_mount: "/media/user/HEADPHONES"
   headphones_music_folder: "Music"
 
@@ -109,36 +109,36 @@ behavior:
 
 ```bash
 # Sync both sources (default behavior)
-spotify-swimmer sync
+music-ferry sync
 
 # Sync only Spotify
-spotify-swimmer sync --spotify
+music-ferry sync --spotify
 
 # Sync only YouTube
-spotify-swimmer sync --youtube
+music-ferry sync --youtube
 
 # Explicit both (same as no flags)
-spotify-swimmer sync --spotify --youtube
+music-ferry sync --spotify --youtube
 
 # Combined with existing flags
-spotify-swimmer -v sync --youtube
-spotify-swimmer -c /path/to/config.yaml sync --spotify
+music-ferry -v sync --youtube
+music-ferry -c /path/to/config.yaml sync --spotify
 ```
 
 ### Transfer Command
 
 ```bash
 # Transfer both sources (default)
-spotify-swimmer transfer
+music-ferry transfer
 
 # Transfer Spotify tracks only
-spotify-swimmer transfer --spotify
+music-ferry transfer --spotify
 
 # Transfer YouTube tracks only
-spotify-swimmer transfer --youtube
+music-ferry transfer --youtube
 
 # Explicit both
-spotify-swimmer transfer --spotify --youtube
+music-ferry transfer --spotify --youtube
 ```
 
 ### Flag Behavior
@@ -395,7 +395,7 @@ Recommend Option 2 for seamless upgrade.
 
 ### Library Migration
 
-Existing library at `~/.spotify-swimmer/library.json` needs to move to `~/.spotify-swimmer/spotify/library.json`.
+Existing library at `~/.music-ferry/library.json` needs to move to `~/.music-ferry/spotify/library.json`.
 
 Handle in Orchestrator `__init__`:
 ```python
@@ -407,17 +407,17 @@ if old_library.exists() and not new_library.exists():
 
 ## Files to Create
 
-- `spotify_swimmer/youtube/__init__.py`
-- `spotify_swimmer/youtube/downloader.py`
+- `music_ferry/youtube/__init__.py`
+- `music_ferry/youtube/downloader.py`
 - `tests/test_youtube_downloader.py`
 
 ## Files to Modify
 
-- `spotify_swimmer/config.py` - Add YouTube config, move playlists under spotify, add enabled fields
-- `spotify_swimmer/cli.py` - Add `--spotify`/`--youtube` flags to sync and transfer
-- `spotify_swimmer/orchestrator.py` - Add YouTube sync path, handle both libraries
-- `spotify_swimmer/transfer.py` - Merge multiple sources for transfer
-- `spotify_swimmer/spotify_api.py` - Add `source` field to Track dataclass
+- `music_ferry/config.py` - Add YouTube config, move playlists under spotify, add enabled fields
+- `music_ferry/cli.py` - Add `--spotify`/`--youtube` flags to sync and transfer
+- `music_ferry/orchestrator.py` - Add YouTube sync path, handle both libraries
+- `music_ferry/transfer.py` - Merge multiple sources for transfer
+- `music_ferry/spotify_api.py` - Add `source` field to Track dataclass
 - `pyproject.toml` - Add yt-dlp dependency
 - `README.md` - Document YouTube support
 - `scripts/install-systemd.sh` - Update sample config

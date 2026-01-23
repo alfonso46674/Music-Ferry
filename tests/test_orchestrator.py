@@ -4,12 +4,12 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
 
-from spotify_swimmer.orchestrator import Orchestrator
-from spotify_swimmer.config import (
+from music_ferry.orchestrator import Orchestrator
+from music_ferry.config import (
     Config, SpotifyConfig, YouTubeConfig, PlaylistConfig, AudioConfig,
     PathsConfig, NotificationsConfig, BehaviorConfig, TransferConfig
 )
-from spotify_swimmer.spotify_api import Track
+from music_ferry.spotify_api import Track
 
 
 @pytest.fixture
@@ -63,7 +63,7 @@ class TestOrchestrator:
         assert new_tracks[0].id == "new456"
 
     def test_orchestrator_uses_library(self, sample_config: Config, tmp_path: Path):
-        from spotify_swimmer.library import Library
+        from music_ferry.library import Library
         orchestrator = Orchestrator(sample_config)
         assert isinstance(orchestrator.spotify_library, Library)
         assert isinstance(orchestrator.youtube_library, Library)
@@ -204,7 +204,7 @@ class TestPlaybackModeSelection:
 class TestPlaylistModeRecording:
     @pytest.mark.asyncio
     async def test_record_playlist_mode_records_only_new(self, sample_config: Config, tmp_path: Path):
-        from spotify_swimmer.library import Library
+        from music_ferry.library import Library
 
         # Setup library with one existing track
         lib = Library(tmp_path / "library.json")
@@ -245,7 +245,7 @@ class TestPlaylistModeRecording:
 
     @pytest.mark.asyncio
     async def test_record_playlist_mode_stops_at_playlist_end(self, sample_config: Config, tmp_path: Path):
-        from spotify_swimmer.library import Library
+        from music_ferry.library import Library
 
         lib = Library(tmp_path / "library.json")
         orchestrator = Orchestrator.__new__(Orchestrator)
@@ -279,12 +279,12 @@ class TestPlaylistModeRecording:
 
 class TestOrchestratorSync:
     @pytest.mark.asyncio
-    @patch("spotify_swimmer.orchestrator.tag_mp3")
-    @patch("spotify_swimmer.orchestrator.asyncio.sleep", new_callable=AsyncMock)
-    @patch("spotify_swimmer.orchestrator.SpotifyAPI")
-    @patch("spotify_swimmer.orchestrator.SpotifyBrowser")
-    @patch("spotify_swimmer.orchestrator.AudioRecorder")
-    @patch("spotify_swimmer.orchestrator.Notifier")
+    @patch("music_ferry.orchestrator.tag_mp3")
+    @patch("music_ferry.orchestrator.asyncio.sleep", new_callable=AsyncMock)
+    @patch("music_ferry.orchestrator.SpotifyAPI")
+    @patch("music_ferry.orchestrator.SpotifyBrowser")
+    @patch("music_ferry.orchestrator.AudioRecorder")
+    @patch("music_ferry.orchestrator.Notifier")
     async def test_run_sync(
         self,
         mock_notifier_class,

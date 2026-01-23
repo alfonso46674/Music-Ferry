@@ -7,8 +7,8 @@ import pytest
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3
 
-from spotify_swimmer.tagger import tag_mp3
-from spotify_swimmer.spotify_api import Track
+from music_ferry.tagger import tag_mp3
+from music_ferry.spotify_api import Track
 
 
 def create_valid_mp3(path: Path) -> None:
@@ -49,7 +49,7 @@ class TestTagger:
         assert audio.tags["TPE1"].text[0] == "Artist 1, Artist 2"
         assert audio.tags["TALB"].text[0] == "Test Album"
 
-    @patch("spotify_swimmer.tagger.requests.get")
+    @patch("music_ferry.tagger.requests.get")
     def test_tag_mp3_with_album_art(self, mock_get, tmp_path: Path):
         mp3_path = tmp_path / "test.mp3"
         create_valid_mp3(mp3_path)

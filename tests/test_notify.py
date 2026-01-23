@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from spotify_swimmer.notify import Notifier, SyncResult, PlaylistResult
+from music_ferry.notify import Notifier, SyncResult, PlaylistResult
 
 
 class TestNotifier:
@@ -41,7 +41,7 @@ class TestNotifier:
         )
         assert result.is_failure is True
 
-    @patch("spotify_swimmer.notify.requests.post")
+    @patch("music_ferry.notify.requests.post")
     def test_send_success_notification(self, mock_post):
         mock_post.return_value = MagicMock(status_code=200)
 
@@ -65,13 +65,13 @@ class TestNotifier:
         mock_post.assert_called_once()
         call_args = mock_post.call_args
         assert "ntfy.sh/test-topic" in call_args[0][0]
-        assert "Spotify Swimmer Complete" in call_args[1]["headers"]["Title"]
+        assert "Music Ferry Complete" in call_args[1]["headers"]["Title"]
         body = call_args[1]["data"].decode("utf-8")
         assert "12 new tracks" in body
         assert "Discover Weekly: 8 new tracks" in body
         assert "Workout Mix: 4 new tracks" in body
 
-    @patch("spotify_swimmer.notify.requests.post")
+    @patch("music_ferry.notify.requests.post")
     def test_send_failure_notification(self, mock_post):
         mock_post.return_value = MagicMock(status_code=200)
 
@@ -94,11 +94,11 @@ class TestNotifier:
 
         mock_post.assert_called_once()
         call_args = mock_post.call_args
-        assert "Spotify Swimmer Failed" in call_args[1]["headers"]["Title"]
+        assert "Music Ferry Failed" in call_args[1]["headers"]["Title"]
         body = call_args[1]["data"].decode("utf-8")
         assert "Login expired" in body
 
-    @patch("spotify_swimmer.notify.requests.post")
+    @patch("music_ferry.notify.requests.post")
     def test_skip_success_notification_when_disabled(self, mock_post):
         notifier = Notifier(
             ntfy_server="https://ntfy.sh",

@@ -367,7 +367,7 @@ wheels = [
 ]
 
 [[package]]
-name = "spotify-swimmer"
+name = "music-ferry"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

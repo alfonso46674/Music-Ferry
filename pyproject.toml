@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "spotify-swimmer"
+name = "music-ferry"
 version = "0.1.0"
-description = "Download Spotify playlists to MP3 for offline swimming"
+description = "Ferry music from Spotify and YouTube to your headphones"
 requires-python = ">=3.11"
 dependencies = [
     "playwright>=1.40.0",
@@ -19,16 +19,37 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "black>=24.3.0",
+    "build>=1.2.1",
+    "mypy>=1.8.0",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
+    "ruff>=0.4.0",
 ]
 
 [project.scripts]
-spotify-swimmer = "spotify_swimmer.cli:main"
+music-ferry = "music_ferry.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["spotify_swimmer*"]
+include = ["music_ferry*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
