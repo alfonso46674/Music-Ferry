@@ -58,35 +58,44 @@ class Notifier:
 
     def _format_message(self, result: SyncResult) -> tuple[str, str]:
         if result.is_failure:
-            title = "❌ Spotify Swimmer Failed"
+            title = "Spotify Swimmer Failed"
             body = f"{result.global_error or 'Sync failed'}\n\nPlaylists:\n"
             for p in result.playlists:
-                body += f"• {p.name}: Not synced\n"
+                body += f"- {p.name}: Not synced\n"
         elif result.has_errors:
-            title = "⚠️ Spotify Swimmer Partial"
+            title = "Spotify Swimmer Partial"
             body = f"Synced {result.total_tracks} new tracks. Some issues occurred.\n\nPlaylists:\n"
             for p in result.playlists:
                 if p.error:
-                    body += f"• {p.name}: Failed ({p.error})\n"
+                    body += f"- {p.name}: Failed ({p.error})\n"
                 else:
-                    body += f"• {p.name}: {p.tracks_synced} new tracks\n"
+                    body += f"- {p.name}: {p.tracks_synced} new tracks\n"
             if result.transferred:
                 body += "\nTransferred to headphones."
         else:
-            title = "🏊 Spotify Swimmer Complete"
+            title = "Spotify Swimmer Complete"
             body = f"Synced {result.total_tracks} new tracks."
             if result.transferred:
                 body += " Transferred to headphones."
             body += "\n\nPlaylists:\n"
             for p in result.playlists:
-                body += f"• {p.name}: {p.tracks_synced} new tracks\n"
+                body += f"- {p.name}: {p.tracks_synced} new tracks\n"
 
         return title, body
 
     def _send_notification(self, title: str, body: str) -> None:
         url = f"{self.ntfy_server}/{self.ntfy_topic}"
-        requests.post(
-            url,
-            data=body,
-            headers={"Title": title},
-        )
+        try:
+            # Encode body as UTF-8 for proper unicode support
+            requests.post(
+                url,
+                data=body.encode("utf-8"),
+                headers={
+                    "Title": title,
+                    "Content-Type": "text/plain; charset=utf-8",
+                },
+                timeout=10,
+            )
+        except Exception:
+            # Don't let notification failures crash the app
+            pass

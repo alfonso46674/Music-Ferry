@@ -66,9 +66,10 @@ class TestNotifier:
         call_args = mock_post.call_args
         assert "ntfy.sh/test-topic" in call_args[0][0]
         assert "Spotify Swimmer Complete" in call_args[1]["headers"]["Title"]
-        assert "12 new tracks" in call_args[1]["data"]
-        assert "Discover Weekly: 8 new tracks" in call_args[1]["data"]
-        assert "Workout Mix: 4 new tracks" in call_args[1]["data"]
+        body = call_args[1]["data"].decode("utf-8")
+        assert "12 new tracks" in body
+        assert "Discover Weekly: 8 new tracks" in body
+        assert "Workout Mix: 4 new tracks" in body
 
     @patch("spotify_swimmer.notify.requests.post")
     def test_send_failure_notification(self, mock_post):
@@ -94,7 +95,8 @@ class TestNotifier:
         mock_post.assert_called_once()
         call_args = mock_post.call_args
         assert "Spotify Swimmer Failed" in call_args[1]["headers"]["Title"]
-        assert "Login expired" in call_args[1]["data"]
+        body = call_args[1]["data"].decode("utf-8")
+        assert "Login expired" in body
 
     @patch("spotify_swimmer.notify.requests.post")
     def test_skip_success_notification_when_disabled(self, mock_post):
