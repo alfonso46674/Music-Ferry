@@ -1,6 +1,6 @@
 # Music Ferry
 
-[![CI](https://github.com/yourusername/music-ferry/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/music-ferry/actions/workflows/ci.yml)
+[![CI](https://github.com/alfonso46674/music-ferry/actions/workflows/ci.yml/badge.svg)](https://github.com/alfonso46674/music-ferry/actions/workflows/ci.yml)
 
 Music Ferry - ferrying music to your headphones. Download Spotify and YouTube playlists to MP3 files for offline listening.
 
@@ -32,10 +32,6 @@ Music Ferry - ferrying music to your headphones. Download Spotify and YouTube pl
 ### Quick Install (recommended)
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/music-ferry.git
-cd music-ferry
-
 # Install the package (uses pipx if available, otherwise pip --user)
 ./scripts/install.sh
 
@@ -49,9 +45,7 @@ playwright install chromium
 ### Development Install
 
 ```bash
-# Clone and create virtual environment
-git clone https://github.com/yourusername/music-ferry.git
-cd music-ferry
+# Create virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
 
