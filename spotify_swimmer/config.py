@@ -92,11 +92,13 @@ def load_config(config_path: Path) -> Config:
     with open(config_path) as f:
         data = yaml.safe_load(f)
 
-    # Validate required spotify fields
+    # Validate required spotify fields (only if enabled)
     spotify_data = data.get("spotify", {})
-    for required in ["client_id", "client_secret", "username"]:
-        if required not in spotify_data:
-            raise ValueError(f"Missing required spotify field: {required}")
+    spotify_enabled = spotify_data.get("enabled", True)
+    if spotify_enabled:
+        for required in ["client_id", "client_secret", "username"]:
+            if required not in spotify_data:
+                raise ValueError(f"Missing required spotify field: {required}")
 
     # Parse Spotify playlists - check both spotify.playlists and root-level playlists (backward compat)
     spotify_playlists_data = spotify_data.get("playlists", [])
@@ -112,10 +114,10 @@ def load_config(config_path: Path) -> Config:
     ]
 
     spotify = SpotifyConfig(
-        client_id=spotify_data["client_id"],
-        client_secret=spotify_data["client_secret"],
-        username=spotify_data["username"],
-        enabled=spotify_data.get("enabled", True),
+        client_id=spotify_data.get("client_id", ""),
+        client_secret=spotify_data.get("client_secret", ""),
+        username=spotify_data.get("username", ""),
+        enabled=spotify_enabled,
         playlists=spotify_playlists,
     )
 

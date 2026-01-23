@@ -205,6 +205,41 @@ class TestYouTubeConfig:
         assert config.spotify.playlists[0].name == "Old Format"
 
 
+    def test_load_config_spotify_disabled_no_credentials(self, tmp_path: Path):
+        """Test that Spotify credentials are not required when disabled."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(yaml.dump({
+            "spotify": {
+                "enabled": False,
+                # No client_id, client_secret, username
+            },
+            "youtube": {
+                "enabled": True,
+                "playlists": [
+                    {"name": "Test", "url": "https://www.youtube.com/playlist?list=PLtest"}
+                ],
+            },
+            "audio": {"bitrate": 192, "format": "mp3"},
+            "paths": {
+                "music_dir": "~/.spotify-swimmer",
+                "headphones_mount": "/media/user/HEADPHONES",
+                "headphones_music_folder": "Music",
+            },
+            "notifications": {
+                "ntfy_topic": "test-topic",
+                "ntfy_server": "https://ntfy.sh",
+            },
+            "behavior": {"skip_existing": True, "trim_silence": True},
+        }))
+
+        config = load_config(config_file)
+
+        assert config.spotify.enabled is False
+        assert config.spotify.client_id == ""
+        assert config.youtube.enabled is True
+        assert len(config.youtube.playlists) == 1
+
+
 class TestYouTubePlaylistConfig:
     def test_youtube_playlist_id_extraction(self, tmp_path: Path):
         config_file = tmp_path / "config.yaml"
