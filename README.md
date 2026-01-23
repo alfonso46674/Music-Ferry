@@ -70,18 +70,33 @@ playwright install chromium
 
 ### Updating
 
-After pulling new changes or a new release:
-
+**Check your install type:**
 ```bash
-# If installed via pipx
-pipx install --force .
-
-# If installed via pip --user
-pip install --user --upgrade .
-
-# If installed in development mode (editable install)
-# Changes apply immediately, no reinstall needed
+pip show spotify-swimmer | grep Location
+# If Location is your project folder → editable install
+# If Location is site-packages → regular install
 ```
+
+**After making code changes:**
+
+| Install Type | Action Needed |
+|--------------|---------------|
+| Editable (`pip install -e .`) | Nothing - changes apply immediately |
+| Regular (`pip install .`) | Reinstall: `pip install .` |
+| pipx | Reinstall: `pipx install --force .` |
+
+**Switching install modes:**
+```bash
+# Switch to editable (for development)
+pip install -e ".[dev]"
+
+# Switch to regular (for release/freeze)
+pip install .
+
+# No need to uninstall first - it overwrites automatically
+```
+
+**Systemd timer:** No changes needed when updating code. The timer just runs the `spotify-swimmer` command, which uses whatever version is currently installed.
 
 ## Configuration
 
