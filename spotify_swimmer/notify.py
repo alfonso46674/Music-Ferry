@@ -27,11 +27,11 @@ class SyncResult:
 
     @property
     def is_success(self) -> bool:
-        return not self.has_errors and self.global_error is None and self.total_tracks > 0
+        return not self.has_errors and self.global_error is None
 
     @property
     def is_failure(self) -> bool:
-        return self.global_error is not None or self.total_tracks == 0
+        return self.global_error is not None or self.has_errors
 
 
 class Notifier:
@@ -74,7 +74,10 @@ class Notifier:
                 body += "\nTransferred to headphones."
         else:
             title = "Spotify Swimmer Complete"
-            body = f"Synced {result.total_tracks} new tracks."
+            if result.total_tracks == 0:
+                body = "Already up to date. No new tracks to sync."
+            else:
+                body = f"Synced {result.total_tracks} new tracks."
             if result.transferred:
                 body += " Transferred to headphones."
             body += "\n\nPlaylists:\n"

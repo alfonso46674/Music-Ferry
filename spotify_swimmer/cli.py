@@ -88,7 +88,10 @@ def cmd_sync(config, verbose: bool) -> int:
     try:
         result = asyncio.run(orchestrator.run())
         if result.is_success:
-            logger.info(f"Sync complete: {result.total_tracks} tracks")
+            if result.total_tracks == 0:
+                logger.info("Already up to date. No new tracks to sync.")
+            else:
+                logger.info(f"Sync complete: {result.total_tracks} tracks")
             return 0
         elif result.has_errors:
             logger.warning(f"Sync completed with errors: {result.total_tracks} tracks")

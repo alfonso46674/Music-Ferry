@@ -1,10 +1,13 @@
 # spotify_swimmer/transfer.py
+import logging
 import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from spotify_swimmer.library import Library
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -221,23 +224,33 @@ class InteractiveTransfer:
         new_to_transfer = local_filenames - headphones_files
         orphaned_on_headphones = headphones_files - local_filenames
 
+        logger.info(
+            f"Syncing: {len(new_to_transfer)} to copy, "
+            f"{len(orphaned_on_headphones)} to remove"
+        )
+
         # Copy new files from correct source directories
         files_copied = 0
-        for filename in new_to_transfer:
+        total_to_copy = len(new_to_transfer)
+        for i, filename in enumerate(new_to_transfer, 1):
             src = local_files[filename]
             dst = self.headphones_path / filename
             if src.exists():
+                logger.info(f"Copying ({i}/{total_to_copy}): {filename}")
                 shutil.copy2(src, dst)
                 files_copied += 1
 
         # Remove orphans
         files_removed = 0
-        for filename in orphaned_on_headphones:
+        total_to_remove = len(orphaned_on_headphones)
+        for i, filename in enumerate(orphaned_on_headphones, 1):
             orphan_path = self.headphones_path / filename
             if orphan_path.exists():
+                logger.info(f"Removing ({i}/{total_to_remove}): {filename}")
                 orphan_path.unlink()
                 files_removed += 1
 
+        logger.info(f"Sync complete: {files_copied} copied, {files_removed} removed")
         return files_copied, files_removed
 
     def full_reset(self) -> int:
@@ -250,27 +263,33 @@ class InteractiveTransfer:
                 f"Headphones not mounted at {self.config.paths.headphones_mount}"
             )
 
+        logger.info("Starting full reset of headphones...")
+
         # Delete all MP3s on headphones
-        for mp3_file in self.headphones_path.glob("*.mp3"):
+        existing_files = list(self.headphones_path.glob("*.mp3"))
+        total_to_delete = len(existing_files)
+        if total_to_delete > 0:
+            logger.info(f"Deleting {total_to_delete} files from headphones...")
+        for i, mp3_file in enumerate(existing_files, 1):
+            logger.info(f"Deleting ({i}/{total_to_delete}): {mp3_file.name}")
             mp3_file.unlink()
 
         # Copy all tracks from selected sources
         local_files = self._get_local_files()
+        total_to_copy = len(local_files)
         files_copied = 0
-        for filename, src_path in local_files.items():
+        for i, (filename, src_path) in enumerate(local_files.items(), 1):
             dst = self.headphones_path / filename
             if src_path.exists():
+                logger.info(f"Copying ({i}/{total_to_copy}): {filename}")
                 shutil.copy2(src_path, dst)
                 files_copied += 1
 
+        logger.info(f"Full reset complete: {files_copied} files copied")
         return files_copied
 
     def run(self) -> int:
         """Run the interactive transfer menu. Returns exit code."""
-        import logging
-
-        logger = logging.getLogger(__name__)
-
         if not self.is_mounted():
             logger.error(
                 f"Headphones not mounted at {self.config.paths.headphones_mount}"
