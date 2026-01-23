@@ -52,6 +52,16 @@ class YouTubeDownloader:
 
         return tracks
 
+    def _progress_hook(self, d: dict) -> None:
+        """Log download progress."""
+        if d["status"] == "downloading":
+            percent = d.get("_percent_str", "?%").strip()
+            speed = d.get("_speed_str", "?").strip()
+            eta = d.get("_eta_str", "?").strip()
+            logger.info(f"  Progress: {percent} at {speed}, ETA: {eta}")
+        elif d["status"] == "finished":
+            logger.info("  Download complete, converting to MP3...")
+
     def download_track(self, track: Track) -> Path:
         """Download a single track as MP3.
 
@@ -79,6 +89,7 @@ class YouTubeDownloader:
             "writethumbnail": True,
             "quiet": True,
             "no_warnings": True,
+            "progress_hooks": [self._progress_hook],
         }
 
         video_url = f"https://www.youtube.com/watch?v={track.id}"
