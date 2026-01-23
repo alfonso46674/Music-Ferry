@@ -49,6 +49,7 @@ class TestConfig:
         assert config.paths.music_dir == Path.home() / ".spotify-swimmer" / "music"
         assert config.notifications.ntfy_topic == "test-topic"
         assert config.behavior.skip_existing is True
+        assert config.transfer.reserve_free_gb == 0.0
 
     def test_load_config_missing_required_field(self, tmp_path: Path):
         config_file = tmp_path / "config.yaml"

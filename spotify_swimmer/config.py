@@ -1,7 +1,6 @@
 # spotify_swimmer/config.py
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 import re
 
 import yaml
@@ -11,6 +10,7 @@ import yaml
 class PlaylistConfig:
     name: str
     url: str
+    max_gb: float | None = None
 
     @property
     def playlist_id(self) -> str:
@@ -76,6 +76,11 @@ class BehaviorConfig:
 
 
 @dataclass
+class TransferConfig:
+    reserve_free_gb: float = 0.0
+
+
+@dataclass
 class Config:
     spotify: SpotifyConfig
     youtube: YouTubeConfig
@@ -83,6 +88,7 @@ class Config:
     paths: PathsConfig
     notifications: NotificationsConfig
     behavior: BehaviorConfig
+    transfer: TransferConfig
 
 
 def load_config(config_path: Path) -> Config:
@@ -109,7 +115,11 @@ def load_config(config_path: Path) -> Config:
         spotify_playlists_data = root_playlists_data
 
     spotify_playlists = [
-        PlaylistConfig(name=p["name"], url=p["url"])
+        PlaylistConfig(
+            name=p["name"],
+            url=p["url"],
+            max_gb=p.get("max_gb"),
+        )
         for p in spotify_playlists_data
     ]
 
@@ -124,7 +134,11 @@ def load_config(config_path: Path) -> Config:
     # Parse YouTube config
     youtube_data = data.get("youtube", {})
     youtube_playlists = [
-        PlaylistConfig(name=p["name"], url=p["url"])
+        PlaylistConfig(
+            name=p["name"],
+            url=p["url"],
+            max_gb=p.get("max_gb"),
+        )
         for p in youtube_data.get("playlists", [])
     ]
     youtube = YouTubeConfig(
@@ -159,6 +173,11 @@ def load_config(config_path: Path) -> Config:
         trim_silence=behavior_data.get("trim_silence", True),
     )
 
+    transfer_data = data.get("transfer", {})
+    transfer = TransferConfig(
+        reserve_free_gb=transfer_data.get("reserve_free_gb", 0.0),
+    )
+
     return Config(
         spotify=spotify,
         youtube=youtube,
@@ -166,4 +185,5 @@ def load_config(config_path: Path) -> Config:
         paths=paths,
         notifications=notifications,
         behavior=behavior,
+        transfer=transfer,
     )

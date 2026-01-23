@@ -12,6 +12,7 @@ class LibraryTrack:
     title: str
     artist: str
     playlists: list[str] = field(default_factory=list)
+    size_bytes: int | None = None
 
     @property
     def is_orphaned(self) -> bool:
@@ -24,6 +25,7 @@ class LibraryPlaylist:
     name: str
     last_synced: str | None = None
     track_count: int = 0
+    track_order: list[str] = field(default_factory=list)
 
 
 class Library:
@@ -70,6 +72,7 @@ class Library:
                 title=track_data["title"],
                 artist=track_data["artist"],
                 playlists=track_data.get("playlists", []),
+                size_bytes=track_data.get("size_bytes"),
             )
 
         for playlist_id, playlist_data in data.get("playlists", {}).items():
@@ -78,6 +81,7 @@ class Library:
                 name=playlist_data["name"],
                 last_synced=playlist_data.get("last_synced"),
                 track_count=playlist_data.get("track_count", 0),
+                track_order=playlist_data.get("track_order", []),
             )
 
     def save(self) -> None:
@@ -91,6 +95,7 @@ class Library:
                     "title": track.title,
                     "artist": track.artist,
                     "playlists": track.playlists,
+                    "size_bytes": track.size_bytes,
                 }
                 for track_id, track in self._tracks.items()
             },
@@ -99,6 +104,7 @@ class Library:
                     "name": playlist.name,
                     "last_synced": playlist.last_synced,
                     "track_count": playlist.track_count,
+                    "track_order": playlist.track_order,
                 }
                 for playlist_id, playlist in self._playlists.items()
             },
@@ -126,9 +132,13 @@ class Library:
         title: str,
         artist: str,
         playlist_id: str,
+        size_bytes: int | None = None,
     ) -> None:
         if track_id in self._tracks:
             self.add_track_to_playlist(track_id, playlist_id)
+            if size_bytes is not None:
+                self._tracks[track_id].size_bytes = size_bytes
+                self.save()
         else:
             self._tracks[track_id] = LibraryTrack(
                 id=track_id,
@@ -136,6 +146,7 @@ class Library:
                 title=title,
                 artist=artist,
                 playlists=[playlist_id],
+                size_bytes=size_bytes,
             )
             self.save()
 
@@ -160,13 +171,19 @@ class Library:
         return self._playlists.get(playlist_id)
 
     def update_playlist(
-        self, playlist_id: str, name: str, track_count: int = 0
+        self,
+        playlist_id: str,
+        name: str,
+        track_count: int = 0,
+        track_order: list[str] | None = None,
     ) -> None:
+        existing = self._playlists.get(playlist_id)
         self._playlists[playlist_id] = LibraryPlaylist(
             id=playlist_id,
             name=name,
             last_synced=datetime.now().isoformat(),
             track_count=track_count,
+            track_order=track_order or (existing.track_order if existing else []),
         )
         self.save()
 

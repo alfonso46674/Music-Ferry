@@ -103,18 +103,18 @@ class YouTubeDownloader:
         self,
         tracks: list[Track],
         on_progress: callable = None,
-    ) -> int:
+    ) -> list[Track]:
         """Download multiple tracks with random delays.
 
-        Returns count of successfully downloaded tracks.
+        Returns list of successfully downloaded tracks.
         """
-        downloaded = 0
+        downloaded: list[Track] = []
 
         for i, track in enumerate(tracks):
             try:
                 logger.info(f"Downloading: {track.name} by {track.artist_string}")
                 self.download_track(track)
-                downloaded += 1
+                downloaded.append(track)
 
                 if on_progress:
                     on_progress(i + 1, len(tracks), track)

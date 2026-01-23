@@ -90,9 +90,9 @@ class TestYouTubeDownloader:
         ]
 
         with patch.object(downloader, "download_track", return_value=Path("/fake.mp3")):
-            count = downloader.download_tracks(tracks)
+            downloaded = downloader.download_tracks(tracks)
 
-        assert count == 2
+        assert len(downloaded) == 2
         # Should have slept between downloads (1 time for 2 tracks)
         assert mock_sleep.call_count == 1
         mock_sleep.assert_called_with(10.0)
@@ -115,6 +115,6 @@ class TestYouTubeDownloader:
 
         with patch.object(downloader, "download_track", side_effect=mock_download):
             with patch("spotify_swimmer.youtube.downloader.time.sleep"):
-                count = downloader.download_tracks(tracks)
+                downloaded = downloader.download_tracks(tracks)
 
-        assert count == 1  # Only second track succeeded
+        assert len(downloaded) == 1  # Only second track succeeded

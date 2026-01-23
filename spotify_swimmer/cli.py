@@ -74,6 +74,11 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
         help="Interactive transfer to headphones",
     )
     _add_source_flags(transfer_parser)
+    transfer_parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="Run transfer without prompts (auto-select to fit size limits)",
+    )
 
     return parser.parse_args(args)
 
@@ -107,14 +112,14 @@ def cmd_sync(config, verbose: bool) -> int:
         return 1
 
 
-def cmd_transfer(config, verbose: bool) -> int:
+def cmd_transfer(config, verbose: bool, auto: bool) -> int:
     """Run transfer command - interactive headphones transfer."""
     from spotify_swimmer.transfer import InteractiveTransfer
 
     logger = logging.getLogger(__name__)
 
     try:
-        transfer = InteractiveTransfer(config)
+        transfer = InteractiveTransfer(config, auto=auto)
         return transfer.run()
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
@@ -142,7 +147,7 @@ def main() -> int:
     if args.command == "sync":
         return cmd_sync(config, args.verbose)
     elif args.command == "transfer":
-        return cmd_transfer(config, args.verbose)
+        return cmd_transfer(config, args.verbose, args.auto)
     else:
         logger.error(f"Unknown command: {args.command}")
         return 1

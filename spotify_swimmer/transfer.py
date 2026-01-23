@@ -2,6 +2,7 @@
 import logging
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -28,6 +29,28 @@ class TransferStatus:
     orphaned_on_headphones: int
     playlists: list[PlaylistStatus] = field(default_factory=list)
     orphaned_files: list[str] = field(default_factory=list)
+
+
+@dataclass
+class TransferCandidate:
+    track_id: str
+    filename: str
+    title: str
+    artist: str
+    size_bytes: int
+    src_path: Path
+    playlist_id: str
+    playlist_name: str
+    source: str
+
+
+@dataclass
+class TransferPlan:
+    files_to_copy: list[TransferCandidate]
+    files_to_remove: list[Path]
+    bytes_to_copy: int
+    bytes_to_remove: int
+    budget_bytes: int
 
 
 class TransferManager:
@@ -77,9 +100,11 @@ class InteractiveTransfer:
         spotify_library: Library | None = None,
         youtube_library: Library | None = None,
         library: Library | None = None,  # Backward compatibility
+        auto: bool = False,
     ):
         self.config = config
         self.sources = sources or ["spotify", "youtube"]
+        self.auto = auto
 
         # Setup base directories
         spotify_base = config.paths.music_dir / "spotify"
@@ -134,6 +159,88 @@ class InteractiveTransfer:
     def _get_local_filenames(self) -> set[str]:
         """Get set of MP3 filenames from selected source libraries."""
         return set(self._get_local_files().keys())
+
+    def _bytes_from_gb(self, value: float | None) -> int | None:
+        if value is None:
+            return None
+        return int(value * 1024 * 1024 * 1024)
+
+    def _get_reserve_free_bytes(self) -> int:
+        transfer_config = getattr(self.config, "transfer", None)
+        reserve_gb = getattr(transfer_config, "reserve_free_gb", 0.0)
+        try:
+            reserve_gb = float(reserve_gb)
+        except (TypeError, ValueError):
+            reserve_gb = 0.0
+        return self._bytes_from_gb(reserve_gb) or 0
+
+    def _get_free_space_bytes(self) -> int:
+        return shutil.disk_usage(self.headphones_path).free
+
+    def _format_bytes(self, size_bytes: int) -> str:
+        if size_bytes < 1024 * 1024:
+            return f"{size_bytes / 1024:.1f} KB"
+        if size_bytes < 1024 * 1024 * 1024:
+            return f"{size_bytes / (1024 * 1024):.1f} MB"
+        return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
+
+    def _get_playlist_selections(self) -> list[dict]:
+        selections: list[dict] = []
+
+        def add_from_config(source: str, library: Library) -> None:
+            source_config = getattr(self.config, source, None)
+            playlists = (
+                getattr(source_config, "playlists", None) if source_config else None
+            )
+            if isinstance(playlists, list) and playlists:
+                for playlist in playlists:
+                    selections.append(
+                        {
+                            "id": playlist.playlist_id,
+                            "name": playlist.name,
+                            "source": source,
+                            "max_bytes": self._bytes_from_gb(playlist.max_gb),
+                            "library": library,
+                        }
+                    )
+                return
+
+            for playlist in library.get_all_playlists():
+                selections.append(
+                    {
+                        "id": playlist.id,
+                        "name": playlist.name,
+                        "source": source,
+                        "max_bytes": None,
+                        "library": library,
+                    }
+                )
+
+        if "spotify" in self.sources:
+            add_from_config("spotify", self.spotify_library)
+        if "youtube" in self.sources:
+            add_from_config("youtube", self.youtube_library)
+
+        return selections
+
+    def _ordered_tracks_for_playlist(
+        self, library: Library, playlist_id: str
+    ) -> list:
+        tracks = library.get_tracks_for_playlist(playlist_id)
+        track_map = {track.id: track for track in tracks}
+        playlist = library.get_playlist(playlist_id)
+        ordered_ids = playlist.track_order if playlist else []
+        ordered = []
+        for track_id in ordered_ids:
+            track = track_map.pop(track_id, None)
+            if track:
+                ordered.append(track)
+
+        remaining = sorted(
+            track_map.values(),
+            key=lambda t: (t.title.lower(), t.artist.lower(), t.id),
+        )
+        return ordered + remaining
 
     def compute_status(self) -> TransferStatus:
         """Compute current transfer status."""
@@ -207,85 +314,363 @@ class InteractiveTransfer:
             orphaned_files=list(orphaned_on_headphones),
         )
 
-    def sync_changes(self) -> tuple[int, int]:
+    def _get_orphaned_files(self, full_reset: bool) -> list[Path]:
+        if not self.headphones_path.exists():
+            return []
+        if full_reset:
+            return list(self.headphones_path.glob("*.mp3"))
+        local_filenames = set(self._get_local_files().keys())
+        headphones_files = self._get_headphones_files()
+        return [
+            self.headphones_path / filename
+            for filename in headphones_files - local_filenames
+        ]
+
+    def _build_transfer_candidates(
+        self, headphones_files: set[str]
+    ) -> list[dict]:
+        candidates: list[dict] = []
+        local_files = self._get_local_files()
+
+        for playlist in self._get_playlist_selections():
+            library = playlist["library"]
+            playlist_id = playlist["id"]
+            playlist_name = playlist["name"]
+            ordered_tracks = self._ordered_tracks_for_playlist(
+                library, playlist_id
+            )
+            playlist_candidates: list[TransferCandidate] = []
+            existing_bytes = 0
+
+            for track in ordered_tracks:
+                filename = track.filename
+                src = local_files.get(filename)
+                if not src or not src.exists():
+                    continue
+
+                size_bytes = src.stat().st_size
+                if filename in headphones_files:
+                    existing_bytes += size_bytes
+                    continue
+
+                playlist_candidates.append(
+                    TransferCandidate(
+                        track_id=track.id,
+                        filename=filename,
+                        title=track.title,
+                        artist=track.artist,
+                        size_bytes=size_bytes,
+                        src_path=src,
+                        playlist_id=playlist_id,
+                        playlist_name=playlist_name,
+                        source=playlist["source"],
+                    )
+                )
+
+            candidates.append(
+                {
+                    "playlist_id": playlist_id,
+                    "playlist_name": playlist_name,
+                    "source": playlist["source"],
+                    "max_bytes": playlist["max_bytes"],
+                    "existing_bytes": existing_bytes,
+                    "candidates": playlist_candidates,
+                }
+            )
+
+        return candidates
+
+    def _prompt_playlist_selection(self, playlists: list[dict]) -> list[str]:
+        print("\n--- Playlist Selection ---")
+        for idx, playlist in enumerate(playlists, 1):
+            total_size = sum(t.size_bytes for t in playlist["candidates"])
+            max_bytes = playlist["max_bytes"]
+            max_label = (
+                self._format_bytes(max_bytes)
+                if max_bytes is not None
+                else "none"
+            )
+            print(
+                f"[{idx}] {playlist['playlist_name']} "
+                f"({playlist['source']}): "
+                f"{self._format_bytes(total_size)} new, "
+                f"cap: {max_label}"
+            )
+
+        choice = input(
+            "Select playlists (comma list, 'all', or 'none'): "
+        ).strip().lower()
+        if choice == "none":
+            return []
+        if choice == "all" or choice == "":
+            return [p["playlist_id"] for p in playlists]
+
+        selected_ids: list[str] = []
+        parts = [p.strip() for p in choice.split(",") if p.strip()]
+        for part in parts:
+            if part.isdigit():
+                idx = int(part)
+                if 1 <= idx <= len(playlists):
+                    selected_ids.append(playlists[idx - 1]["playlist_id"])
+        return selected_ids
+
+    def _prompt_track_selection_mode(self, playlist_name: str) -> str:
+        choice = input(
+            f"Track selection for '{playlist_name}': "
+            "[a]uto, [m]anual, [s]kip: "
+        ).strip().lower()
+        if choice in ("m", "manual"):
+            return "manual"
+        if choice in ("s", "skip"):
+            return "skip"
+        return "auto"
+
+    def _select_tracks_for_playlist(
+        self,
+        playlist: dict,
+        budget_bytes: int,
+        playlist_budget_bytes: int | None,
+        selected_filenames: set[str],
+        manual: bool,
+    ) -> tuple[list[TransferCandidate], int]:
+        selected: list[TransferCandidate] = []
+        used_bytes = 0
+        for track in playlist["candidates"]:
+            if track.filename in selected_filenames:
+                continue
+
+            remaining_budget = budget_bytes - used_bytes
+            if remaining_budget <= 0:
+                break
+
+            if playlist_budget_bytes is not None:
+                remaining_playlist = playlist_budget_bytes - used_bytes
+                if remaining_playlist <= 0:
+                    break
+                if track.size_bytes > remaining_playlist:
+                    logger.info(
+                        "Skipping %s (%s): playlist cap reached",
+                        track.filename,
+                        self._format_bytes(track.size_bytes),
+                    )
+                    continue
+
+            if track.size_bytes > remaining_budget:
+                logger.info(
+                    "Skipping %s (%s): reserve free cap reached",
+                    track.filename,
+                    self._format_bytes(track.size_bytes),
+                )
+                continue
+
+            if manual:
+                prompt = (
+                    f"Include {track.title} - {track.artist} "
+                    f"({self._format_bytes(track.size_bytes)})? [Y/n]: "
+                )
+                answer = input(prompt).strip().lower()
+                if answer == "n":
+                    logger.info("Skipped by user: %s", track.filename)
+                    continue
+
+            selected.append(track)
+            selected_filenames.add(track.filename)
+            used_bytes += track.size_bytes
+            logger.info(
+                "Selected: %s (%s)",
+                track.filename,
+                self._format_bytes(track.size_bytes),
+            )
+
+        return selected, used_bytes
+
+    def _plan_transfer(
+        self,
+        full_reset: bool,
+        auto: bool,
+    ) -> TransferPlan:
+        if not self.is_mounted():
+            raise RuntimeError(
+                f"Headphones not mounted at {self.config.paths.headphones_mount}"
+            )
+
+        if not auto and not sys.stdin.isatty():
+            logger.info("No TTY detected; switching to auto selection")
+            auto = True
+
+        headphones_files = set() if full_reset else self._get_headphones_files()
+        orphaned_files = self._get_orphaned_files(full_reset)
+        bytes_to_remove = sum(
+            f.stat().st_size for f in orphaned_files if f.exists()
+        )
+        free_bytes = self._get_free_space_bytes()
+        reserve_bytes = self._get_reserve_free_bytes()
+        budget_bytes = max(free_bytes + bytes_to_remove - reserve_bytes, 0)
+
+        logger.info(
+            "Transfer budget: free=%s, remove=%s, reserve=%s, available=%s",
+            self._format_bytes(free_bytes),
+            self._format_bytes(bytes_to_remove),
+            self._format_bytes(reserve_bytes),
+            self._format_bytes(budget_bytes),
+        )
+
+        playlists = self._build_transfer_candidates(headphones_files)
+        selected_files: list[TransferCandidate] = []
+        selected_filenames: set[str] = set()
+        total_selected_bytes = 0
+
+        if not playlists:
+            return TransferPlan(
+                files_to_copy=[],
+                files_to_remove=orphaned_files,
+                bytes_to_copy=0,
+                bytes_to_remove=bytes_to_remove,
+                budget_bytes=budget_bytes,
+            )
+
+        unique_candidates: dict[str, int] = {}
+        for playlist in playlists:
+            for track in playlist["candidates"]:
+                unique_candidates.setdefault(track.filename, track.size_bytes)
+
+        total_unique_bytes = sum(unique_candidates.values())
+        needs_prompt = total_unique_bytes > budget_bytes
+        for playlist in playlists:
+            max_bytes = playlist["max_bytes"]
+            if max_bytes is not None:
+                playlist_total = playlist["existing_bytes"] + sum(
+                    t.size_bytes for t in playlist["candidates"]
+                )
+                if playlist_total > max_bytes:
+                    needs_prompt = True
+                    break
+
+        if auto or not needs_prompt:
+            selected_playlist_ids = [p["playlist_id"] for p in playlists]
+        else:
+            selected_playlist_ids = self._prompt_playlist_selection(playlists)
+
+        for playlist in playlists:
+            if playlist["playlist_id"] not in selected_playlist_ids:
+                logger.info("Skipping playlist: %s", playlist["playlist_name"])
+                continue
+
+            remaining_budget = budget_bytes - total_selected_bytes
+            if remaining_budget <= 0:
+                logger.info("Budget exhausted before playlist %s", playlist["playlist_name"])
+                break
+
+            max_bytes = playlist["max_bytes"]
+            playlist_budget = None
+            if max_bytes is not None:
+                selected_overlap = sum(
+                    t.size_bytes
+                    for t in playlist["candidates"]
+                    if t.filename in selected_filenames
+                )
+                used_on_device = (
+                    playlist["existing_bytes"] + selected_overlap
+                )
+                playlist_budget = max(max_bytes - used_on_device, 0)
+
+            playlist_new_bytes = sum(
+                t.size_bytes for t in playlist["candidates"]
+            )
+            needs_trim = (
+                playlist_new_bytes > remaining_budget
+                or (playlist_budget is not None and playlist_new_bytes > playlist_budget)
+            )
+
+            manual = False
+            if not auto and needs_trim:
+                mode = self._prompt_track_selection_mode(playlist["playlist_name"])
+                if mode == "skip":
+                    logger.info("Skipping playlist by user: %s", playlist["playlist_name"])
+                    continue
+                manual = mode == "manual"
+
+            chosen, used_bytes = self._select_tracks_for_playlist(
+                playlist,
+                remaining_budget,
+                playlist_budget,
+                selected_filenames,
+                manual,
+            )
+
+            if chosen:
+                selected_files.extend(chosen)
+                total_selected_bytes += used_bytes
+
+        return TransferPlan(
+            files_to_copy=selected_files,
+            files_to_remove=orphaned_files,
+            bytes_to_copy=total_selected_bytes,
+            bytes_to_remove=bytes_to_remove,
+            budget_bytes=budget_bytes,
+        )
+
+    def _execute_plan(self, plan: TransferPlan) -> tuple[int, int]:
+        files_copied = 0
+        total_to_copy = len(plan.files_to_copy)
+        for i, track in enumerate(plan.files_to_copy, 1):
+            dst = self.headphones_path / track.filename
+            if track.src_path.exists():
+                logger.info(
+                    "Copying (%d/%d): %s (%s)",
+                    i,
+                    total_to_copy,
+                    track.filename,
+                    self._format_bytes(track.size_bytes),
+                )
+                shutil.copy2(track.src_path, dst)
+                files_copied += 1
+
+        files_removed = 0
+        total_to_remove = len(plan.files_to_remove)
+        for i, orphan_path in enumerate(plan.files_to_remove, 1):
+            if orphan_path.exists():
+                logger.info(
+                    "Removing (%d/%d): %s",
+                    i,
+                    total_to_remove,
+                    orphan_path.name,
+                )
+                orphan_path.unlink()
+                files_removed += 1
+
+        logger.info(
+            "Sync complete: %d copied (%s), %d removed (%s)",
+            files_copied,
+            self._format_bytes(plan.bytes_to_copy),
+            files_removed,
+            self._format_bytes(plan.bytes_to_remove),
+        )
+        return files_copied, files_removed
+
+    def sync_changes(self, auto: bool | None = None) -> tuple[int, int]:
         """Sync changes to headphones: copy new files, remove orphans.
 
         Returns tuple of (files_copied, files_removed).
         """
-        if not self.is_mounted():
-            raise RuntimeError(
-                f"Headphones not mounted at {self.config.paths.headphones_mount}"
-            )
+        use_auto = self.auto if auto is None else auto
+        plan = self._plan_transfer(full_reset=False, auto=use_auto)
+        if plan.budget_bytes <= 0 and plan.bytes_to_copy > 0:
+            logger.warning("Transfer skipped: reserve free space exceeded")
+            return 0, 0
+        return self._execute_plan(plan)
 
-        local_files = self._get_local_files()
-        local_filenames = set(local_files.keys())
-        headphones_files = self._get_headphones_files()
-
-        new_to_transfer = local_filenames - headphones_files
-        orphaned_on_headphones = headphones_files - local_filenames
-
-        logger.info(
-            f"Syncing: {len(new_to_transfer)} to copy, "
-            f"{len(orphaned_on_headphones)} to remove"
-        )
-
-        # Copy new files from correct source directories
-        files_copied = 0
-        total_to_copy = len(new_to_transfer)
-        for i, filename in enumerate(new_to_transfer, 1):
-            src = local_files[filename]
-            dst = self.headphones_path / filename
-            if src.exists():
-                logger.info(f"Copying ({i}/{total_to_copy}): {filename}")
-                shutil.copy2(src, dst)
-                files_copied += 1
-
-        # Remove orphans
-        files_removed = 0
-        total_to_remove = len(orphaned_on_headphones)
-        for i, filename in enumerate(orphaned_on_headphones, 1):
-            orphan_path = self.headphones_path / filename
-            if orphan_path.exists():
-                logger.info(f"Removing ({i}/{total_to_remove}): {filename}")
-                orphan_path.unlink()
-                files_removed += 1
-
-        logger.info(f"Sync complete: {files_copied} copied, {files_removed} removed")
-        return files_copied, files_removed
-
-    def full_reset(self) -> int:
+    def full_reset(self, auto: bool | None = None) -> int:
         """Delete all files on headphones and copy all tracks from selected sources.
 
         Returns count of files copied.
         """
-        if not self.is_mounted():
-            raise RuntimeError(
-                f"Headphones not mounted at {self.config.paths.headphones_mount}"
-            )
-
-        logger.info("Starting full reset of headphones...")
-
-        # Delete all MP3s on headphones
-        existing_files = list(self.headphones_path.glob("*.mp3"))
-        total_to_delete = len(existing_files)
-        if total_to_delete > 0:
-            logger.info(f"Deleting {total_to_delete} files from headphones...")
-        for i, mp3_file in enumerate(existing_files, 1):
-            logger.info(f"Deleting ({i}/{total_to_delete}): {mp3_file.name}")
-            mp3_file.unlink()
-
-        # Copy all tracks from selected sources
-        local_files = self._get_local_files()
-        total_to_copy = len(local_files)
-        files_copied = 0
-        for i, (filename, src_path) in enumerate(local_files.items(), 1):
-            dst = self.headphones_path / filename
-            if src_path.exists():
-                logger.info(f"Copying ({i}/{total_to_copy}): {filename}")
-                shutil.copy2(src_path, dst)
-                files_copied += 1
-
-        logger.info(f"Full reset complete: {files_copied} files copied")
+        use_auto = self.auto if auto is None else auto
+        plan = self._plan_transfer(full_reset=True, auto=use_auto)
+        if plan.budget_bytes <= 0 and plan.bytes_to_copy > 0:
+            logger.warning("Full reset skipped: reserve free space exceeded")
+            return 0
+        files_copied, _ = self._execute_plan(plan)
         return files_copied
 
     def run(self) -> int:
@@ -299,6 +684,11 @@ class InteractiveTransfer:
             )
             print("Please connect your headphones and try again.")
             return 1
+
+        if self.auto:
+            copied, removed = self.sync_changes(auto=True)
+            print(f"\nSynced: {copied} copied, {removed} removed")
+            return 0
 
         status = self.compute_status()
 

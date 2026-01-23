@@ -100,9 +100,15 @@ class Orchestrator:
     ) -> None:
         """Update library to reflect current playlist membership from API."""
         api_track_ids = {t.id for t in api_tracks}
+        track_order = [track.id for track in api_tracks]
 
         # Update playlist metadata
-        library.update_playlist(playlist_id, playlist_name, len(api_tracks))
+        library.update_playlist(
+            playlist_id,
+            playlist_name,
+            len(api_tracks),
+            track_order=track_order,
+        )
 
         # Add playlist to tracks that are in API response and already downloaded
         for track in api_tracks:
@@ -284,20 +290,31 @@ class Orchestrator:
 
                 if new_tracks:
                     logger.info(f"YouTube '{playlist.name}': {len(new_tracks)} new tracks")
-                    downloaded = downloader.download_tracks(new_tracks)
+                    downloaded_tracks = downloader.download_tracks(new_tracks)
 
                     # Add downloaded tracks to library
-                    for track in new_tracks[:downloaded]:
+                    for track in downloaded_tracks:
+                        output_path = self.youtube_music_dir / f"{track.id}.mp3"
+                        size_bytes = (
+                            output_path.stat().st_size
+                            if output_path.exists()
+                            else None
+                        )
                         self.youtube_library.add_track(
                             track.id,
                             f"{track.id}.mp3",
                             track.name,
                             track.artist_string,
                             playlist.playlist_id,
+                            size_bytes=size_bytes,
                         )
 
                     playlist_results.append(
-                        PlaylistResult(name=playlist.name, tracks_synced=downloaded, error=None)
+                        PlaylistResult(
+                            name=playlist.name,
+                            tracks_synced=len(downloaded_tracks),
+                            error=None,
+                        )
                     )
                 else:
                     logger.info(f"YouTube '{playlist.name}': fully synced")
@@ -394,8 +411,14 @@ class Orchestrator:
 
         tag_mp3(output_path, track)
         # Note: playlist_id will be added by _update_playlist_membership
+        size_bytes = output_path.stat().st_size if output_path.exists() else None
         self.spotify_library.add_track(
-            track.id, f"{track.id}.mp3", track.name, track.artist_string, ""
+            track.id,
+            f"{track.id}.mp3",
+            track.name,
+            track.artist_string,
+            "",
+            size_bytes=size_bytes,
         )
 
         logger.info(f"Completed: {track.name}")
@@ -471,8 +494,14 @@ class Orchestrator:
         recorder.stop_recording()
 
         tag_mp3(output_path, track)
+        size_bytes = output_path.stat().st_size if output_path.exists() else None
         self.spotify_library.add_track(
-            track.id, f"{track.id}.mp3", track.name, track.artist_string, ""
+            track.id,
+            f"{track.id}.mp3",
+            track.name,
+            track.artist_string,
+            "",
+            size_bytes=size_bytes,
         )
 
         logger.info(f"Completed: {track.name}")

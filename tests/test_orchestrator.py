@@ -7,7 +7,7 @@ import pytest
 from spotify_swimmer.orchestrator import Orchestrator
 from spotify_swimmer.config import (
     Config, SpotifyConfig, YouTubeConfig, PlaylistConfig, AudioConfig,
-    PathsConfig, NotificationsConfig, BehaviorConfig
+    PathsConfig, NotificationsConfig, BehaviorConfig, TransferConfig
 )
 from spotify_swimmer.spotify_api import Track
 
@@ -41,6 +41,7 @@ def sample_config(tmp_path: Path) -> Config:
             skip_existing=True,
             trim_silence=True,
         ),
+        transfer=TransferConfig(reserve_free_gb=0.0),
     )
 
 

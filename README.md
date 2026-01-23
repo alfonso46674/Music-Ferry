@@ -111,6 +111,7 @@ spotify:
   playlists:
     - name: "Discover Weekly"
       url: "https://open.spotify.com/playlist/37i9dQZEVXcQ9COmYvdajy"
+      max_gb: 1.5
     - name: "Workout Mix"
       url: "https://open.spotify.com/playlist/YOUR_PLAYLIST_ID"
 
@@ -119,6 +120,7 @@ youtube:
   playlists:
     - name: "Coding Music"
       url: "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID"
+      max_gb: 2.0
 
 audio:
   bitrate: 192  # kbps
@@ -138,6 +140,9 @@ notifications:
 behavior:
   skip_existing: true
   trim_silence: true
+
+transfer:
+  reserve_free_gb: 1.0
 ```
 
 ### Getting Spotify Credentials
@@ -204,6 +209,9 @@ spotify-swimmer sync --youtube
 
 # Transfer all tracks to headphones
 spotify-swimmer transfer
+
+# Transfer to headphones (auto-select to fit size limits)
+spotify-swimmer transfer --auto
 
 # Transfer only Spotify tracks
 spotify-swimmer transfer --spotify
