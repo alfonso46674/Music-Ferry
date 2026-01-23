@@ -17,9 +17,7 @@ class YouTubeDownloader:
         self.bitrate = bitrate
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    def get_playlist_tracks(
-        self, playlist_url: str, playlist_name: str
-    ) -> list[Track]:
+    def get_playlist_tracks(self, playlist_url: str, playlist_name: str) -> list[Track]:
         """Fetch playlist metadata without downloading.
 
         Returns list of Track objects with source="youtube".

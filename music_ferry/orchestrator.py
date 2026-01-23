@@ -12,7 +12,6 @@ from music_ferry.tagger import tag_mp3
 from music_ferry.notify import Notifier, SyncResult, PlaylistResult
 from music_ferry.youtube import YouTubeDownloader
 
-
 logger = logging.getLogger(__name__)
 
 PLAYLIST_MODE_THRESHOLD = 0.7  # Use playlist mode when >= 70% of tracks are new
@@ -208,7 +207,9 @@ class Orchestrator:
 
         # Download new tracks if any exist
         if playlists_with_new_tracks:
-            total_new = sum(len(tracks) for tracks in playlists_with_new_tracks.values())
+            total_new = sum(
+                len(tracks) for tracks in playlists_with_new_tracks.values()
+            )
             logger.info(
                 f"Found {total_new} new tracks across "
                 f"{len(playlists_with_new_tracks)} playlists. Starting sync..."
@@ -224,8 +225,12 @@ class Orchestrator:
                             raise RuntimeError("Login expired - please re-authenticate")
 
                         for playlist in self.config.spotify.playlists:
-                            new_tracks = playlists_with_new_tracks.get(playlist.playlist_id)
-                            all_tracks = all_playlist_tracks.get(playlist.playlist_id, [])
+                            new_tracks = playlists_with_new_tracks.get(
+                                playlist.playlist_id
+                            )
+                            all_tracks = all_playlist_tracks.get(
+                                playlist.playlist_id, []
+                            )
                             if new_tracks:
                                 result = await self._sync_playlist_tracks(
                                     playlist, new_tracks, all_tracks, browser, recorder
@@ -240,7 +245,9 @@ class Orchestrator:
                 for playlist in self.config.spotify.playlists:
                     if not any(r.name == playlist.name for r in playlist_results):
                         playlist_results.append(
-                            PlaylistResult(name=playlist.name, tracks_synced=0, error=str(e))
+                            PlaylistResult(
+                                name=playlist.name, tracks_synced=0, error=str(e)
+                            )
                         )
         else:
             logger.info("All Spotify playlists are fully synced. No downloads needed.")
@@ -282,23 +289,21 @@ class Orchestrator:
         for playlist in self.config.youtube.playlists:
             try:
                 logger.info(f"Fetching YouTube playlist: {playlist.name}")
-                all_tracks = downloader.get_playlist_tracks(
-                    playlist.url, playlist.name
-                )
+                all_tracks = downloader.get_playlist_tracks(playlist.url, playlist.name)
 
                 new_tracks = self._filter_new_tracks(all_tracks, self.youtube_library)
 
                 if new_tracks:
-                    logger.info(f"YouTube '{playlist.name}': {len(new_tracks)} new tracks")
+                    logger.info(
+                        f"YouTube '{playlist.name}': {len(new_tracks)} new tracks"
+                    )
                     downloaded_tracks = downloader.download_tracks(new_tracks)
 
                     # Add downloaded tracks to library
                     for track in downloaded_tracks:
                         output_path = self.youtube_music_dir / f"{track.id}.mp3"
                         size_bytes = (
-                            output_path.stat().st_size
-                            if output_path.exists()
-                            else None
+                            output_path.stat().st_size if output_path.exists() else None
                         )
                         self.youtube_library.add_track(
                             track.id,
@@ -324,7 +329,10 @@ class Orchestrator:
 
                 # Update playlist membership
                 self._update_playlist_membership(
-                    playlist.playlist_id, playlist.name, all_tracks, self.youtube_library
+                    playlist.playlist_id,
+                    playlist.name,
+                    all_tracks,
+                    self.youtube_library,
                 )
 
             except Exception as e:
@@ -468,8 +476,7 @@ class Orchestrator:
             # Wait for next track
             timeout = (track.duration_seconds + 30) if track else 300
             next_track_id = await browser.wait_for_track_change(
-                current_track_id,
-                timeout_seconds=timeout
+                current_track_id, timeout_seconds=timeout
             )
 
             if next_track_id is None:

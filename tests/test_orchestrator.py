@@ -6,8 +6,15 @@ import pytest
 
 from music_ferry.orchestrator import Orchestrator
 from music_ferry.config import (
-    Config, SpotifyConfig, YouTubeConfig, PlaylistConfig, AudioConfig,
-    PathsConfig, NotificationsConfig, BehaviorConfig, TransferConfig
+    Config,
+    SpotifyConfig,
+    YouTubeConfig,
+    PlaylistConfig,
+    AudioConfig,
+    PathsConfig,
+    NotificationsConfig,
+    BehaviorConfig,
+    TransferConfig,
 )
 from music_ferry.spotify_api import Track
 
@@ -21,7 +28,9 @@ def sample_config(tmp_path: Path) -> Config:
             username="test_user",
             enabled=True,
             playlists=[
-                PlaylistConfig(name="Test Playlist", url="https://open.spotify.com/playlist/abc123"),
+                PlaylistConfig(
+                    name="Test Playlist", url="https://open.spotify.com/playlist/abc123"
+                ),
             ],
         ),
         youtube=YouTubeConfig(enabled=False, playlists=[]),
@@ -53,23 +62,41 @@ class TestOrchestrator:
         )
 
         tracks = [
-            Track(id="existing123", name="Old Song", artists=["A"], album="B", duration_ms=180000, album_art_url=None),
-            Track(id="new456", name="New Song", artists=["C"], album="D", duration_ms=200000, album_art_url=None),
+            Track(
+                id="existing123",
+                name="Old Song",
+                artists=["A"],
+                album="B",
+                duration_ms=180000,
+                album_art_url=None,
+            ),
+            Track(
+                id="new456",
+                name="New Song",
+                artists=["C"],
+                album="D",
+                duration_ms=200000,
+                album_art_url=None,
+            ),
         ]
 
-        new_tracks = orchestrator._filter_new_tracks(tracks, orchestrator.spotify_library)
+        new_tracks = orchestrator._filter_new_tracks(
+            tracks, orchestrator.spotify_library
+        )
 
         assert len(new_tracks) == 1
         assert new_tracks[0].id == "new456"
 
     def test_orchestrator_uses_library(self, sample_config: Config, tmp_path: Path):
         from music_ferry.library import Library
+
         orchestrator = Orchestrator(sample_config)
         assert isinstance(orchestrator.spotify_library, Library)
         assert isinstance(orchestrator.youtube_library, Library)
 
     def test_orchestrator_migrates_old_db(self, sample_config: Config, tmp_path: Path):
         import json
+
         # Create old tracks.json
         old_db = sample_config.paths.music_dir.parent / "tracks.json"
         old_db.parent.mkdir(parents=True, exist_ok=True)
@@ -99,7 +126,9 @@ class TestOrchestrator:
         assert not mp3_path.exists()
         assert not orchestrator.spotify_library.is_downloaded("orphan1")
 
-    def test_cleanup_orphaned_tracks_keeps_non_orphans(self, sample_config: Config, tmp_path: Path):
+    def test_cleanup_orphaned_tracks_keeps_non_orphans(
+        self, sample_config: Config, tmp_path: Path
+    ):
         orchestrator = Orchestrator(sample_config)
 
         # Add a track that's NOT orphaned
@@ -119,7 +148,9 @@ class TestOrchestrator:
         assert mp3_path.exists()
         assert orchestrator.spotify_library.is_downloaded("active1")
 
-    def test_update_playlist_membership_adds_new_playlist(self, sample_config: Config, tmp_path: Path):
+    def test_update_playlist_membership_adds_new_playlist(
+        self, sample_config: Config, tmp_path: Path
+    ):
         orchestrator = Orchestrator(sample_config)
 
         # Create a track that's in library for playlist1
@@ -129,8 +160,14 @@ class TestOrchestrator:
 
         # Simulate track appearing in playlist2 as well (from API)
         mock_tracks = [
-            Track(id="track1", name="Song 1", artists=["Artist"],
-                  album="Album", duration_ms=180000, album_art_url=None)
+            Track(
+                id="track1",
+                name="Song 1",
+                artists=["Artist"],
+                album="Album",
+                duration_ms=180000,
+                album_art_url=None,
+            )
         ]
 
         orchestrator._update_playlist_membership(
@@ -141,7 +178,9 @@ class TestOrchestrator:
         assert "playlist1" in track.playlists
         assert "playlist2" in track.playlists
 
-    def test_update_playlist_membership_removes_old_tracks(self, sample_config: Config, tmp_path: Path):
+    def test_update_playlist_membership_removes_old_tracks(
+        self, sample_config: Config, tmp_path: Path
+    ):
         orchestrator = Orchestrator(sample_config)
 
         # Create tracks in playlist1
@@ -154,8 +193,14 @@ class TestOrchestrator:
 
         # API now only has track1 in playlist1 (track2 was removed)
         mock_tracks = [
-            Track(id="track1", name="Song 1", artists=["Artist"],
-                  album="Album", duration_ms=180000, album_art_url=None)
+            Track(
+                id="track1",
+                name="Song 1",
+                artists=["Artist"],
+                album="Album",
+                duration_ms=180000,
+                album_art_url=None,
+            )
         ]
 
         orchestrator._update_playlist_membership(
@@ -170,6 +215,7 @@ class TestOrchestrator:
         track2 = orchestrator.spotify_library.get_track("track2")
         assert "playlist1" not in track2.playlists
         assert track2.is_orphaned
+
 
 class TestPlaybackModeSelection:
     def test_playlist_mode_when_mostly_new(self):
@@ -203,7 +249,9 @@ class TestPlaybackModeSelection:
 
 class TestPlaylistModeRecording:
     @pytest.mark.asyncio
-    async def test_record_playlist_mode_records_only_new(self, sample_config: Config, tmp_path: Path):
+    async def test_record_playlist_mode_records_only_new(
+        self, sample_config: Config, tmp_path: Path
+    ):
         from music_ferry.library import Library
 
         # Setup library with one existing track
@@ -216,8 +264,22 @@ class TestPlaylistModeRecording:
         orchestrator.spotify_music_dir = tmp_path / "music"
 
         all_tracks = [
-            Track(id="existing1", name="Existing", artists=["Artist"], album="Album", duration_ms=180000, album_art_url=None),
-            Track(id="new1", name="New Song", artists=["Artist"], album="Album", duration_ms=200000, album_art_url=None),
+            Track(
+                id="existing1",
+                name="Existing",
+                artists=["Artist"],
+                album="Album",
+                duration_ms=180000,
+                album_art_url=None,
+            ),
+            Track(
+                id="new1",
+                name="New Song",
+                artists=["Artist"],
+                album="Album",
+                duration_ms=200000,
+                album_art_url=None,
+            ),
         ]
         new_track_ids = {"new1"}
 
@@ -229,7 +291,9 @@ class TestPlaylistModeRecording:
 
         mock_recorder = MagicMock()
 
-        with patch.object(orchestrator, '_record_current_track', new_callable=AsyncMock) as mock_record:
+        with patch.object(
+            orchestrator, "_record_current_track", new_callable=AsyncMock
+        ) as mock_record:
             recorded = await orchestrator._record_playlist_mode(
                 playlist_id="playlist1",
                 all_tracks=all_tracks,
@@ -244,7 +308,9 @@ class TestPlaylistModeRecording:
         assert mock_record.call_args[0][0].id == "new1"
 
     @pytest.mark.asyncio
-    async def test_record_playlist_mode_stops_at_playlist_end(self, sample_config: Config, tmp_path: Path):
+    async def test_record_playlist_mode_stops_at_playlist_end(
+        self, sample_config: Config, tmp_path: Path
+    ):
         from music_ferry.library import Library
 
         lib = Library(tmp_path / "library.json")
@@ -254,17 +320,28 @@ class TestPlaylistModeRecording:
         orchestrator.spotify_music_dir = tmp_path / "music"
 
         all_tracks = [
-            Track(id="track1", name="Song 1", artists=["Artist"], album="Album", duration_ms=180000, album_art_url=None),
+            Track(
+                id="track1",
+                name="Song 1",
+                artists=["Artist"],
+                album="Album",
+                duration_ms=180000,
+                album_art_url=None,
+            ),
         ]
 
         mock_browser = MagicMock()
         mock_browser.get_current_track_id.return_value = "track1"
         mock_browser.play_playlist = AsyncMock()
-        mock_browser.wait_for_track_change = AsyncMock(return_value=None)  # Playlist ends
+        mock_browser.wait_for_track_change = AsyncMock(
+            return_value=None
+        )  # Playlist ends
 
         mock_recorder = MagicMock()
 
-        with patch.object(orchestrator, '_record_current_track', new_callable=AsyncMock) as mock_record:
+        with patch.object(
+            orchestrator, "_record_current_track", new_callable=AsyncMock
+        ) as mock_record:
             recorded = await orchestrator._record_playlist_mode(
                 playlist_id="playlist1",
                 all_tracks=all_tracks,
@@ -297,7 +374,14 @@ class TestOrchestratorSync:
     ):
         mock_api = MagicMock()
         mock_api.get_playlist_tracks.return_value = [
-            Track(id="track1", name="Song 1", artists=["Artist"], album="Album", duration_ms=180000, album_art_url=None),
+            Track(
+                id="track1",
+                name="Song 1",
+                artists=["Artist"],
+                album="Album",
+                duration_ms=180000,
+                album_art_url=None,
+            ),
         ]
         mock_api_class.return_value = mock_api
 
@@ -309,7 +393,9 @@ class TestOrchestratorSync:
         mock_browser.play_track = AsyncMock()
         # With 100% new tracks, playlist mode is used - mock track detection
         mock_browser.get_current_track_id.return_value = "track1"
-        mock_browser.wait_for_track_change = AsyncMock(return_value=None)  # End of playlist
+        mock_browser.wait_for_track_change = AsyncMock(
+            return_value=None
+        )  # End of playlist
         mock_browser_class.return_value = mock_browser
 
         mock_recorder = MagicMock()

@@ -118,9 +118,7 @@ class InteractiveTransfer:
                 spotify_base / "library.json"
             )
 
-        self.youtube_library = youtube_library or Library(
-            youtube_base / "library.json"
-        )
+        self.youtube_library = youtube_library or Library(youtube_base / "library.json")
 
         # Setup music directories
         self.spotify_music_dir = spotify_base / "music"
@@ -223,9 +221,7 @@ class InteractiveTransfer:
 
         return selections
 
-    def _ordered_tracks_for_playlist(
-        self, library: Library, playlist_id: str
-    ) -> list:
+    def _ordered_tracks_for_playlist(self, library: Library, playlist_id: str) -> list:
         tracks = library.get_tracks_for_playlist(playlist_id)
         track_map = {track.id: track for track in tracks}
         playlist = library.get_playlist(playlist_id)
@@ -326,9 +322,7 @@ class InteractiveTransfer:
             for filename in headphones_files - local_filenames
         ]
 
-    def _build_transfer_candidates(
-        self, headphones_files: set[str]
-    ) -> list[dict]:
+    def _build_transfer_candidates(self, headphones_files: set[str]) -> list[dict]:
         candidates: list[dict] = []
         local_files = self._get_local_files()
 
@@ -336,9 +330,7 @@ class InteractiveTransfer:
             library = playlist["library"]
             playlist_id = playlist["id"]
             playlist_name = playlist["name"]
-            ordered_tracks = self._ordered_tracks_for_playlist(
-                library, playlist_id
-            )
+            ordered_tracks = self._ordered_tracks_for_playlist(library, playlist_id)
             playlist_candidates: list[TransferCandidate] = []
             existing_bytes = 0
 
@@ -386,9 +378,7 @@ class InteractiveTransfer:
             total_size = sum(t.size_bytes for t in playlist["candidates"])
             max_bytes = playlist["max_bytes"]
             max_label = (
-                self._format_bytes(max_bytes)
-                if max_bytes is not None
-                else "none"
+                self._format_bytes(max_bytes) if max_bytes is not None else "none"
             )
             print(
                 f"[{idx}] {playlist['playlist_name']} "
@@ -397,9 +387,9 @@ class InteractiveTransfer:
                 f"cap: {max_label}"
             )
 
-        choice = input(
-            "Select playlists (comma list, 'all', or 'none'): "
-        ).strip().lower()
+        choice = (
+            input("Select playlists (comma list, 'all', or 'none'): ").strip().lower()
+        )
         if choice == "none":
             return []
         if choice == "all" or choice == "":
@@ -415,10 +405,13 @@ class InteractiveTransfer:
         return selected_ids
 
     def _prompt_track_selection_mode(self, playlist_name: str) -> str:
-        choice = input(
-            f"Track selection for '{playlist_name}': "
-            "[a]uto, [m]anual, [s]kip: "
-        ).strip().lower()
+        choice = (
+            input(
+                f"Track selection for '{playlist_name}': " "[a]uto, [m]anual, [s]kip: "
+            )
+            .strip()
+            .lower()
+        )
         if choice in ("m", "manual"):
             return "manual"
         if choice in ("s", "skip"):
@@ -500,9 +493,7 @@ class InteractiveTransfer:
 
         headphones_files = set() if full_reset else self._get_headphones_files()
         orphaned_files = self._get_orphaned_files(full_reset)
-        bytes_to_remove = sum(
-            f.stat().st_size for f in orphaned_files if f.exists()
-        )
+        bytes_to_remove = sum(f.stat().st_size for f in orphaned_files if f.exists())
         free_bytes = self._get_free_space_bytes()
         reserve_bytes = self._get_reserve_free_bytes()
         budget_bytes = max(free_bytes + bytes_to_remove - reserve_bytes, 0)
@@ -558,7 +549,9 @@ class InteractiveTransfer:
 
             remaining_budget = budget_bytes - total_selected_bytes
             if remaining_budget <= 0:
-                logger.info("Budget exhausted before playlist %s", playlist["playlist_name"])
+                logger.info(
+                    "Budget exhausted before playlist %s", playlist["playlist_name"]
+                )
                 break
 
             max_bytes = playlist["max_bytes"]
@@ -569,24 +562,21 @@ class InteractiveTransfer:
                     for t in playlist["candidates"]
                     if t.filename in selected_filenames
                 )
-                used_on_device = (
-                    playlist["existing_bytes"] + selected_overlap
-                )
+                used_on_device = playlist["existing_bytes"] + selected_overlap
                 playlist_budget = max(max_bytes - used_on_device, 0)
 
-            playlist_new_bytes = sum(
-                t.size_bytes for t in playlist["candidates"]
-            )
-            needs_trim = (
-                playlist_new_bytes > remaining_budget
-                or (playlist_budget is not None and playlist_new_bytes > playlist_budget)
+            playlist_new_bytes = sum(t.size_bytes for t in playlist["candidates"])
+            needs_trim = playlist_new_bytes > remaining_budget or (
+                playlist_budget is not None and playlist_new_bytes > playlist_budget
             )
 
             manual = False
             if not auto and needs_trim:
                 mode = self._prompt_track_selection_mode(playlist["playlist_name"])
                 if mode == "skip":
-                    logger.info("Skipping playlist by user: %s", playlist["playlist_name"])
+                    logger.info(
+                        "Skipping playlist by user: %s", playlist["playlist_name"]
+                    )
                     continue
                 manual = mode == "manual"
 
@@ -679,9 +669,7 @@ class InteractiveTransfer:
             logger.error(
                 f"Headphones not mounted at {self.config.paths.headphones_mount}"
             )
-            print(
-                f"\nHeadphones not mounted at {self.config.paths.headphones_mount}"
-            )
+            print(f"\nHeadphones not mounted at {self.config.paths.headphones_mount}")
             print("Please connect your headphones and try again.")
             return 1
 
@@ -703,10 +691,7 @@ class InteractiveTransfer:
             print("\n--- Playlists ---")
             for playlist in status.playlists:
                 synced = playlist.total_tracks - playlist.new_tracks
-                print(
-                    f"  {playlist.name}: "
-                    f"{synced}/{playlist.total_tracks} synced"
-                )
+                print(f"  {playlist.name}: " f"{synced}/{playlist.total_tracks} synced")
 
         if status.orphaned_files:
             print("\n--- Orphaned files ---")
@@ -728,7 +713,9 @@ class InteractiveTransfer:
             copied, removed = self.sync_changes()
             print(f"\nSynced: {copied} copied, {removed} removed")
         elif choice == "2":
-            confirm = input("This will delete ALL files on headphones. Continue? [y/N]: ")
+            confirm = input(
+                "This will delete ALL files on headphones. Continue? [y/N]: "
+            )
             if confirm.lower() == "y":
                 copied = self.full_reset()
                 print(f"\nReset complete: {copied} files copied")

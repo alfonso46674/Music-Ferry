@@ -3,7 +3,6 @@ import random
 import subprocess
 from pathlib import Path
 
-
 # Generic sink names that look like standard audio devices
 SINK_NAMES = [
     "alsa_output.virtual",
@@ -64,12 +63,18 @@ class AudioRecorder:
             [
                 "ffmpeg",
                 "-y",
-                "-f", "pulse",
-                "-i", monitor_source,
-                "-ac", "2",
-                "-ar", "44100",
-                "-b:a", f"{self.bitrate}k",
-                "-f", "mp3",
+                "-f",
+                "pulse",
+                "-i",
+                monitor_source,
+                "-ac",
+                "2",
+                "-ar",
+                "44100",
+                "-b:a",
+                f"{self.bitrate}k",
+                "-f",
+                "mp3",
                 str(output_path),
             ],
             stdin=subprocess.PIPE,

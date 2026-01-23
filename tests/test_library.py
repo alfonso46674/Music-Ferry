@@ -158,10 +158,14 @@ class TestLibrary:
     def test_migrate_from_old_format(self, tmp_path: Path):
         # Create old tracks.json format
         old_db = tmp_path / "tracks.json"
-        old_db.write_text(json.dumps({
-            "track1": "track1.mp3",
-            "track2": "track2.mp3",
-        }))
+        old_db.write_text(
+            json.dumps(
+                {
+                    "track1": "track1.mp3",
+                    "track2": "track2.mp3",
+                }
+            )
+        )
 
         lib = Library(tmp_path / "library.json", migrate_from=old_db)
 

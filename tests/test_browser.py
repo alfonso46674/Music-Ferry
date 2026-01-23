@@ -138,7 +138,9 @@ class TestSpotifyBrowserIntegration:
             await browser.skip_to_next()
 
         # Should click the skip forward button
-        mock_page.locator.assert_called_with('[data-testid="control-button-skip-forward"]')
+        mock_page.locator.assert_called_with(
+            '[data-testid="control-button-skip-forward"]'
+        )
         mock_locator.click.assert_called()
 
 
@@ -156,7 +158,9 @@ class TestBrowserUrlParsing:
         browser = SpotifyBrowser.__new__(SpotifyBrowser)
         browser.base_url = "https://open.spotify.com"
         browser.page = MagicMock()
-        browser.page.url = "https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh?si=abc123"
+        browser.page.url = (
+            "https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh?si=abc123"
+        )
 
         track_id = browser.get_current_track_id()
         assert track_id == "4iV5W9uYEdYUVa79Axb7Rh"
@@ -184,7 +188,9 @@ class TestWaitForTrackChange:
             browser.page.url = "https://open.spotify.com/track/track2"
 
         with patch("music_ferry.browser.asyncio.sleep", side_effect=mock_sleep):
-            new_track = await browser.wait_for_track_change("track1", timeout_seconds=10)
+            new_track = await browser.wait_for_track_change(
+                "track1", timeout_seconds=10
+            )
 
         assert new_track == "track2"
 
@@ -195,6 +201,8 @@ class TestWaitForTrackChange:
         browser.page.url = "https://open.spotify.com/track/track1"
 
         with patch("music_ferry.browser.asyncio.sleep", new_callable=AsyncMock):
-            new_track = await browser.wait_for_track_change("track1", timeout_seconds=0.1)
+            new_track = await browser.wait_for_track_change(
+                "track1", timeout_seconds=0.1
+            )
 
         assert new_track is None

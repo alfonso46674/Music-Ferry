@@ -83,10 +83,24 @@ class TestYouTubeDownloader:
         mock_random.return_value = 10.0
 
         tracks = [
-            Track(id="vid1", name="Video 1", artists=["Ch1"], album="PL",
-                  duration_ms=100000, album_art_url=None, source="youtube"),
-            Track(id="vid2", name="Video 2", artists=["Ch2"], album="PL",
-                  duration_ms=100000, album_art_url=None, source="youtube"),
+            Track(
+                id="vid1",
+                name="Video 1",
+                artists=["Ch1"],
+                album="PL",
+                duration_ms=100000,
+                album_art_url=None,
+                source="youtube",
+            ),
+            Track(
+                id="vid2",
+                name="Video 2",
+                artists=["Ch2"],
+                album="PL",
+                duration_ms=100000,
+                album_art_url=None,
+                source="youtube",
+            ),
         ]
 
         with patch.object(downloader, "download_track", return_value=Path("/fake.mp3")):
@@ -100,13 +114,28 @@ class TestYouTubeDownloader:
     def test_download_tracks_handles_errors(self, downloader):
         """Test that download_tracks continues after individual failures."""
         tracks = [
-            Track(id="vid1", name="Video 1", artists=["Ch1"], album="PL",
-                  duration_ms=100000, album_art_url=None, source="youtube"),
-            Track(id="vid2", name="Video 2", artists=["Ch2"], album="PL",
-                  duration_ms=100000, album_art_url=None, source="youtube"),
+            Track(
+                id="vid1",
+                name="Video 1",
+                artists=["Ch1"],
+                album="PL",
+                duration_ms=100000,
+                album_art_url=None,
+                source="youtube",
+            ),
+            Track(
+                id="vid2",
+                name="Video 2",
+                artists=["Ch2"],
+                album="PL",
+                duration_ms=100000,
+                album_art_url=None,
+                source="youtube",
+            ),
         ]
 
         call_count = [0]
+
         def mock_download(track):
             call_count[0] += 1
             if call_count[0] == 1:

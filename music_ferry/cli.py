@@ -47,13 +47,15 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
 
     # Global arguments
     parser.add_argument(
-        "-c", "--config",
+        "-c",
+        "--config",
         type=Path,
         default=Path.home() / ".music-ferry" / "config.yaml",
         help="Path to config file (default: ~/.music-ferry/config.yaml)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose logging",
     )

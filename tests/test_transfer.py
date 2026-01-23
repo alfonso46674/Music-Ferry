@@ -125,7 +125,9 @@ class TestInteractiveTransfer:
         headphones_music = mock_config.paths.headphones_mount / "Music"
         (headphones_music / "track1.mp3").write_bytes(b"data")
 
-        transfer = InteractiveTransfer(mock_config, sources=["spotify"], spotify_library=lib)
+        transfer = InteractiveTransfer(
+            mock_config, sources=["spotify"], spotify_library=lib
+        )
         status = transfer.compute_status()
 
         assert status.local_track_count == 2
@@ -149,7 +151,9 @@ class TestInteractiveTransfer:
         (headphones_music / "track1.mp3").write_bytes(b"data")
         (headphones_music / "orphan.mp3").write_bytes(b"data")
 
-        transfer = InteractiveTransfer(mock_config, sources=["spotify"], spotify_library=lib)
+        transfer = InteractiveTransfer(
+            mock_config, sources=["spotify"], spotify_library=lib
+        )
         status = transfer.compute_status()
 
         assert status.orphaned_on_headphones == 1
@@ -171,7 +175,9 @@ class TestInteractiveTransfer:
         headphones_music = mock_config.paths.headphones_mount / "Music"
         (headphones_music / "orphan.mp3").write_bytes(b"orphan")
 
-        transfer = InteractiveTransfer(mock_config, sources=["spotify"], spotify_library=lib)
+        transfer = InteractiveTransfer(
+            mock_config, sources=["spotify"], spotify_library=lib
+        )
         transfer.sync_changes()
 
         # New files should be copied
@@ -196,7 +202,9 @@ class TestInteractiveTransfer:
         (headphones_music / "old.mp3").write_bytes(b"old")
         (headphones_music / "other.mp3").write_bytes(b"other")
 
-        transfer = InteractiveTransfer(mock_config, sources=["spotify"], spotify_library=lib)
+        transfer = InteractiveTransfer(
+            mock_config, sources=["spotify"], spotify_library=lib
+        )
         transfer.full_reset()
 
         # Only library tracks should remain

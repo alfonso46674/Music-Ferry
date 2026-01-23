@@ -189,8 +189,7 @@ class Library:
 
     def get_tracks_for_playlist(self, playlist_id: str) -> list[LibraryTrack]:
         return [
-            track for track in self._tracks.values()
-            if playlist_id in track.playlists
+            track for track in self._tracks.values() if playlist_id in track.playlists
         ]
 
     def get_orphaned_tracks(self) -> list[LibraryTrack]:

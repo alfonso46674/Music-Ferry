@@ -34,7 +34,9 @@ class TestNotifier:
     def test_sync_result_all_failed(self):
         result = SyncResult(
             playlists=[
-                PlaylistResult(name="Playlist 1", tracks_synced=0, error="Login expired"),
+                PlaylistResult(
+                    name="Playlist 1", tracks_synced=0, error="Login expired"
+                ),
             ],
             transferred=False,
             global_error="Login expired",

@@ -31,7 +31,9 @@ class TestMultiSourceTransfer:
         spotify_lib.update_playlist("playlist1", "Spotify Playlist", 1)
         (spotify_music / "sp1.mp3").write_bytes(b"spotify data")
 
-        youtube_lib.add_track("yt1", "yt1.mp3", "YouTube Video", "Channel", "ytplaylist")
+        youtube_lib.add_track(
+            "yt1", "yt1.mp3", "YouTube Video", "Channel", "ytplaylist"
+        )
         youtube_lib.update_playlist("ytplaylist", "YouTube Playlist", 1)
         (youtube_music / "yt1.mp3").write_bytes(b"youtube data")
 

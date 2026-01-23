@@ -32,8 +32,14 @@ class TestOrchestratorMultiSource:
     def test_orchestrator_has_separate_libraries(self, mock_config, tmp_path):
         orchestrator = Orchestrator(mock_config)
 
-        assert orchestrator.spotify_library.db_path == tmp_path / "spotify" / "library.json"
-        assert orchestrator.youtube_library.db_path == tmp_path / "youtube" / "library.json"
+        assert (
+            orchestrator.spotify_library.db_path
+            == tmp_path / "spotify" / "library.json"
+        )
+        assert (
+            orchestrator.youtube_library.db_path
+            == tmp_path / "youtube" / "library.json"
+        )
 
     def test_orchestrator_creates_source_directories(self, mock_config, tmp_path):
         orchestrator = Orchestrator(mock_config)
@@ -43,8 +49,12 @@ class TestOrchestratorMultiSource:
 
     @pytest.mark.asyncio
     async def test_run_with_spotify_only(self, mock_config):
-        with patch.object(Orchestrator, "_sync_spotify", new_callable=AsyncMock) as mock_spotify:
-            with patch.object(Orchestrator, "_sync_youtube", new_callable=AsyncMock) as mock_youtube:
+        with patch.object(
+            Orchestrator, "_sync_spotify", new_callable=AsyncMock
+        ) as mock_spotify:
+            with patch.object(
+                Orchestrator, "_sync_youtube", new_callable=AsyncMock
+            ) as mock_youtube:
                 mock_spotify.return_value = []
                 mock_youtube.return_value = []
 
@@ -56,8 +66,12 @@ class TestOrchestratorMultiSource:
 
     @pytest.mark.asyncio
     async def test_run_with_youtube_only(self, mock_config):
-        with patch.object(Orchestrator, "_sync_spotify", new_callable=AsyncMock) as mock_spotify:
-            with patch.object(Orchestrator, "_sync_youtube", new_callable=AsyncMock) as mock_youtube:
+        with patch.object(
+            Orchestrator, "_sync_spotify", new_callable=AsyncMock
+        ) as mock_spotify:
+            with patch.object(
+                Orchestrator, "_sync_youtube", new_callable=AsyncMock
+            ) as mock_youtube:
                 mock_spotify.return_value = []
                 mock_youtube.return_value = []
 
@@ -69,8 +83,12 @@ class TestOrchestratorMultiSource:
 
     @pytest.mark.asyncio
     async def test_run_with_both_sources(self, mock_config):
-        with patch.object(Orchestrator, "_sync_spotify", new_callable=AsyncMock) as mock_spotify:
-            with patch.object(Orchestrator, "_sync_youtube", new_callable=AsyncMock) as mock_youtube:
+        with patch.object(
+            Orchestrator, "_sync_spotify", new_callable=AsyncMock
+        ) as mock_spotify:
+            with patch.object(
+                Orchestrator, "_sync_youtube", new_callable=AsyncMock
+            ) as mock_youtube:
                 mock_spotify.return_value = []
                 mock_youtube.return_value = []
 
