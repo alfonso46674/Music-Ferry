@@ -17,16 +17,16 @@ if [ -n "$VIRTUAL_ENV" ]; then
     echo "Installing into venv..."
     pip install "$PROJECT_DIR"
     INSTALL_METHOD="venv"
-elif command -v pipx &> /dev/null; then
-    echo "Installing with pipx..."
-    pipx install "$PROJECT_DIR" || pipx install --force "$PROJECT_DIR"
-    INSTALL_METHOD="pipx"
 elif command -v python3 &> /dev/null; then
     echo "Installing into dedicated venv at $VENV_DIR..."
     python3 -m venv "$VENV_DIR"
     "$VENV_DIR/bin/pip" install --upgrade pip
     "$VENV_DIR/bin/pip" install "$PROJECT_DIR"
     INSTALL_METHOD="venv"
+elif command -v pipx &> /dev/null; then
+    echo "Installing with pipx..."
+    pipx install "$PROJECT_DIR" || pipx install --force "$PROJECT_DIR"
+    INSTALL_METHOD="pipx"
 else
     echo "Error: Neither pipx nor python3 found. Please install Python first."
     exit 1

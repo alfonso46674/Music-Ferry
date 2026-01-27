@@ -14,7 +14,7 @@ RUN_CMD="music-ferry"
 if [ -x "$VENV_BIN/music-ferry" ]; then
     RUN_CMD="$VENV_BIN/music-ferry"
 elif command -v music-ferry &> /dev/null; then
-    RUN_CMD="music-ferry"
+    RUN_CMD="$(command -v music-ferry)"
 else
     echo "Error: music-ferry not found in PATH or $VENV_BIN"
     echo "Please run install.sh first."

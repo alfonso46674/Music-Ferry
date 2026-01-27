@@ -320,6 +320,15 @@ make typecheck
 # Format code
 make format
 
+# Install locally (non-editable) in .venv
+make install
+
+# Install locally (editable) in .venv for development
+make install-dev
+
+# Build and install the wheel into the runtime venv used by systemd
+make install-release
+
 # Run specific test file
 pytest tests/test_config.py -v
 
