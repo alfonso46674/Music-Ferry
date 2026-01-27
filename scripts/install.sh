@@ -7,6 +7,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 DATA_DIR="$HOME/.music-ferry"
+VENV_DIR="$DATA_DIR/venv"
 
 echo "Installing Music Ferry..."
 
@@ -20,20 +21,29 @@ elif command -v pipx &> /dev/null; then
     echo "Installing with pipx..."
     pipx install "$PROJECT_DIR" || pipx install --force "$PROJECT_DIR"
     INSTALL_METHOD="pipx"
-elif command -v pip &> /dev/null; then
-    echo "Installing with pip (--user)..."
-    pip install --user "$PROJECT_DIR"
-    INSTALL_METHOD="pip"
+elif command -v python3 &> /dev/null; then
+    echo "Installing into dedicated venv at $VENV_DIR..."
+    python3 -m venv "$VENV_DIR"
+    "$VENV_DIR/bin/pip" install --upgrade pip
+    "$VENV_DIR/bin/pip" install "$PROJECT_DIR"
+    INSTALL_METHOD="venv"
 else
-    echo "Error: Neither pipx nor pip found. Please install Python first."
+    echo "Error: Neither pipx nor python3 found. Please install Python first."
     exit 1
 fi
 
 # Verify installation
-if ! command -v music-ferry &> /dev/null; then
-    echo ""
-    echo "Warning: music-ferry not found in PATH"
-    if [ "$INSTALL_METHOD" = "pip" ]; then
+if [ "$INSTALL_METHOD" = "venv" ]; then
+    if [ ! -x "$VENV_DIR/bin/music-ferry" ]; then
+        echo ""
+        echo "Warning: music-ferry not found in $VENV_DIR/bin"
+        echo "You can run it directly via:"
+        echo "  $VENV_DIR/bin/music-ferry"
+    fi
+else
+    if ! command -v music-ferry &> /dev/null; then
+        echo ""
+        echo "Warning: music-ferry not found in PATH"
         echo "You may need to add ~/.local/bin to your PATH:"
         echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
     fi

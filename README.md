@@ -32,7 +32,7 @@ Music Ferry - ferrying music to your headphones. Download Spotify and YouTube pl
 ### Quick Install (recommended)
 
 ```bash
-# Install the package (uses pipx if available, otherwise pip --user)
+# Install the package (uses pipx if available, otherwise a dedicated venv)
 ./scripts/install.sh
 
 # Install Playwright browser for Spotify
@@ -90,7 +90,7 @@ pip install .
 # No need to uninstall first - it overwrites automatically
 ```
 
-**Systemd timer:** No changes needed when updating code. The timer just runs the `music-ferry` command, which uses whatever version is currently installed.
+**Systemd timer:** No changes needed when updating code. The timer runs the `music-ferry` command (pipx) or the dedicated venv binary at `~/.music-ferry/venv/bin/music-ferry`, depending on how you installed it.
 
 ## Configuration
 

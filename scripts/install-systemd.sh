@@ -7,11 +7,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 SYSTEMD_DIR="$HOME/.config/systemd/user"
+DATA_DIR="$HOME/.music-ferry"
+VENV_BIN="$DATA_DIR/venv/bin"
+RUN_CMD="music-ferry"
 
-# Verify music-ferry is installed
-if ! command -v music-ferry &> /dev/null; then
-    echo "Error: music-ferry not found in PATH"
-    echo "Please run install.sh first, or add ~/.local/bin to your PATH"
+if [ -x "$VENV_BIN/music-ferry" ]; then
+    RUN_CMD="$VENV_BIN/music-ferry"
+elif command -v music-ferry &> /dev/null; then
+    RUN_CMD="music-ferry"
+else
+    echo "Error: music-ferry not found in PATH or $VENV_BIN"
+    echo "Please run install.sh first."
     exit 1
 fi
 
@@ -19,9 +25,10 @@ echo "Installing systemd units..."
 
 # Create systemd directory
 mkdir -p "$SYSTEMD_DIR"
+mkdir -p "$DATA_DIR/logs"
 
 # Install service unit
-cat > "$SYSTEMD_DIR/music-ferry.service" << 'EOF'
+cat > "$SYSTEMD_DIR/music-ferry.service" << EOF
 [Unit]
 Description=Music Ferry - Download playlists for offline listening
 After=network-online.target
@@ -29,8 +36,11 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+Environment=RUN_CMD=$RUN_CMD
+StandardOutput=append:%h/.music-ferry/logs/sync.log
+StandardError=append:%h/.music-ferry/logs/sync.log
 # Start Xvfb for headless browser, then run sync
-ExecStart=/bin/bash -c 'Xvfb :99 -screen 0 1920x1080x24 & XVFB_PID=$!; sleep 1; DISPLAY=:99 music-ferry sync; kill $XVFB_PID 2>/dev/null || true'
+ExecStart=/bin/bash -c 'Xvfb :99 -screen 0 1920x1080x24 >/dev/null 2>&1 & XVFB_PID=\$!; sleep 1; DISPLAY=:99 "$RUN_CMD" sync; kill \$XVFB_PID 2>/dev/null || true'
 TimeoutStartSec=3600
 
 [Install]

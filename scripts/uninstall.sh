@@ -5,6 +5,7 @@
 set -e
 
 DATA_DIR="$HOME/.music-ferry"
+VENV_DIR="$DATA_DIR/venv"
 SYSTEMD_DIR="$HOME/.config/systemd/user"
 
 echo "Uninstalling Music Ferry..."
@@ -39,7 +40,11 @@ echo "Uninstalling package (installed via $INSTALL_METHOD)..."
 if [ "$INSTALL_METHOD" = "pipx" ]; then
     pipx uninstall music-ferry 2>/dev/null || true
 else
-    pip uninstall -y music-ferry 2>/dev/null || true
+    if [ -x "$VENV_DIR/bin/pip" ]; then
+        "$VENV_DIR/bin/pip" uninstall -y music-ferry 2>/dev/null || true
+    else
+        pip uninstall -y music-ferry 2>/dev/null || true
+    fi
 fi
 
 # Ask about data directory
