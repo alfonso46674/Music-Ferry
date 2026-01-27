@@ -137,6 +137,8 @@ class TestYouTubeConfig:
                     },
                     "youtube": {
                         "enabled": True,
+                        "retry_count": 2,
+                        "retry_delay_seconds": 7.5,
                         "playlists": [
                             {
                                 "name": "YT Playlist",
@@ -172,6 +174,8 @@ class TestYouTubeConfig:
         assert config.youtube.enabled is True
         assert len(config.youtube.playlists) == 1
         assert config.youtube.playlists[0].name == "YT Playlist"
+        assert config.youtube.retry_count == 2
+        assert config.youtube.retry_delay_seconds == 7.5
 
     def test_load_config_youtube_disabled_by_default(self, tmp_path: Path):
         config_file = tmp_path / "config.yaml"

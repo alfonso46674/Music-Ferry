@@ -40,6 +40,8 @@ class SpotifyConfig:
 class YouTubeConfig:
     enabled: bool = False
     playlists: list[PlaylistConfig] = field(default_factory=list)
+    retry_count: int = 1
+    retry_delay_seconds: float = 5.0
 
 
 @dataclass
@@ -144,6 +146,8 @@ def load_config(config_path: Path) -> Config:
     youtube = YouTubeConfig(
         enabled=youtube_data.get("enabled", False),
         playlists=youtube_playlists,
+        retry_count=youtube_data.get("retry_count", 1),
+        retry_delay_seconds=youtube_data.get("retry_delay_seconds", 5.0),
     )
 
     audio_data = data.get("audio", {})

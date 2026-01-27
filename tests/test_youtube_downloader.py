@@ -2,6 +2,9 @@
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from urllib.error import HTTPError
+
+from yt_dlp.utils import DownloadError
 
 from music_ferry.youtube.downloader import YouTubeDownloader
 from music_ferry.spotify_api import Track
@@ -104,9 +107,10 @@ class TestYouTubeDownloader:
         ]
 
         with patch.object(downloader, "download_track", return_value=Path("/fake.mp3")):
-            downloaded = downloader.download_tracks(tracks)
+            downloaded, failed = downloader.download_tracks(tracks)
 
         assert len(downloaded) == 2
+        assert failed == []
         # Should have slept between downloads (1 time for 2 tracks)
         assert mock_sleep.call_count == 1
         mock_sleep.assert_called_with(10.0)
@@ -144,6 +148,20 @@ class TestYouTubeDownloader:
 
         with patch.object(downloader, "download_track", side_effect=mock_download):
             with patch("music_ferry.youtube.downloader.time.sleep"):
-                downloaded = downloader.download_tracks(tracks)
+                downloaded, failed = downloader.download_tracks(tracks)
 
         assert len(downloaded) == 1  # Only second track succeeded
+        assert len(failed) == 1
+
+    def test_is_retryable_error_http_status(self, downloader):
+        http_error = HTTPError(
+            url="https://www.youtube.com/watch?v=abc",
+            code=403,
+            msg="Forbidden",
+            hdrs=None,
+            fp=None,
+        )
+        error = DownloadError("HTTP Error 403: Forbidden")
+        error.__cause__ = http_error
+
+        assert downloader._is_retryable_error(error) is True

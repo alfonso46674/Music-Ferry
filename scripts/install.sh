@@ -69,6 +69,8 @@ spotify:
 
 youtube:
   enabled: false
+  retry_count: 1
+  retry_delay_seconds: 5.0
   playlists:
     - name: "Coding Music"
       url: "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID"

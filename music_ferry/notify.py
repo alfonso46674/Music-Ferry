@@ -31,7 +31,7 @@ class SyncResult:
 
     @property
     def is_failure(self) -> bool:
-        return self.global_error is not None or self.has_errors
+        return self.global_error is not None
 
 
 class Notifier:

@@ -111,6 +111,8 @@ spotify:
 
 youtube:
   enabled: false
+  retry_count: 1
+  retry_delay_seconds: 5.0
   playlists:
     - name: "Coding Music"
       url: "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID"
@@ -160,6 +162,11 @@ YouTube playlists are downloaded directly using yt-dlp - no browser automation r
 1. Set `youtube.enabled: true` in your config
 2. Add playlists under `youtube.playlists` with name and URL
 3. Run `music-ferry sync` or `music-ferry sync --youtube`
+
+**YouTube retry options:**
+
+- `youtube.retry_count`: how many retries per track (default: 1)
+- `youtube.retry_delay_seconds`: base delay before retry in seconds (default: 5.0)
 
 **Source flags:**
 

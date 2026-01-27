@@ -284,6 +284,8 @@ class Orchestrator:
         downloader = YouTubeDownloader(
             output_dir=self.youtube_music_dir,
             bitrate=self.config.audio.bitrate,
+            max_retries=self.config.youtube.retry_count,
+            retry_delay_seconds=self.config.youtube.retry_delay_seconds,
         )
 
         for playlist in self.config.youtube.playlists:
@@ -297,7 +299,17 @@ class Orchestrator:
                     logger.info(
                         f"YouTube '{playlist.name}': {len(new_tracks)} new tracks"
                     )
-                    downloaded_tracks = downloader.download_tracks(new_tracks)
+                    downloaded_tracks, failed_tracks = downloader.download_tracks(
+                        new_tracks
+                    )
+                    error = None
+                    if failed_tracks:
+                        example_track, example_error = failed_tracks[0]
+                        error = (
+                            f"{len(failed_tracks)} track(s) failed to download "
+                            f"(example: {example_track.name}: {example_error}). "
+                            "See logs for details."
+                        )
 
                     # Add downloaded tracks to library
                     for track in downloaded_tracks:
@@ -318,7 +330,7 @@ class Orchestrator:
                         PlaylistResult(
                             name=playlist.name,
                             tracks_synced=len(downloaded_tracks),
-                            error=None,
+                            error=error,
                         )
                     )
                 else:
