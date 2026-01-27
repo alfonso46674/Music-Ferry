@@ -5,6 +5,7 @@ import logging
 import sys
 from pathlib import Path
 
+from music_ferry import __version__
 from music_ferry.config import load_config
 
 
@@ -58,6 +59,12 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
         "--verbose",
         action="store_true",
         help="Enable verbose logging",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+        help="Show version and exit",
     )
 
     # Subcommands
