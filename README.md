@@ -193,10 +193,11 @@ Tracks are organized by source:
 
 ### Commands
 
-Music Ferry has two separate commands:
+Music Ferry has three commands:
 
 - **`sync`** - Downloads new tracks and cleans up orphaned files
 - **`transfer`** - Interactive menu to transfer music to headphones
+- **`serve`** - Start the web UI server with Prometheus metrics
 
 ```bash
 # Sync both Spotify and YouTube (default)
@@ -216,6 +217,12 @@ music-ferry transfer --auto
 
 # Transfer only Spotify tracks
 music-ferry transfer --spotify
+
+# Start web UI (default: http://127.0.0.1:4444)
+music-ferry serve
+
+# Web UI on custom port
+music-ferry serve --port 8080
 
 # With verbose logging
 music-ferry -v sync
@@ -239,6 +246,24 @@ The `transfer` command provides an interactive menu:
 2. Sync changes (copy new, remove orphans from headphones)
 3. Full reset (delete all, copy fresh)
 4. View detailed track list by playlist
+
+### Web UI
+
+The `serve` command starts a web dashboard with:
+- **Real-time status** - sync state, library stats
+- **Trigger syncs** - start sync from the browser
+- **Live logs** - streaming log output via SSE
+- **Prometheus metrics** - exposed at `/metrics`
+
+```bash
+# Start the web UI
+music-ferry serve --port 4444
+
+# Install as systemd service for auto-start
+./scripts/install-systemd-web.sh
+```
+
+See [docs/web-ui.md](docs/web-ui.md) for full documentation including API reference, reverse proxy setup, and Prometheus configuration.
 
 ### First Run (Login)
 
@@ -290,14 +315,29 @@ music-ferry/
 │   ├── notify.py        # Ntfy notifications
 │   ├── orchestrator.py  # Main sync workflow
 │   ├── cli.py           # Command-line interface
-│   └── youtube/
+│   ├── youtube/
+│   │   ├── __init__.py
+│   │   └── downloader.py # yt-dlp wrapper
+│   ├── web/             # Web UI (FastAPI)
+│   │   ├── __init__.py
+│   │   ├── app.py       # Application factory
+│   │   ├── routes/      # API endpoints
+│   │   ├── services/    # Business logic
+│   │   └── static/      # Dashboard HTML/CSS/JS
+│   └── metrics/         # Prometheus instrumentation
 │       ├── __init__.py
-│       └── downloader.py # yt-dlp wrapper
-├── tests/               # Test suite (117 tests)
+│       ├── collectors.py
+│       └── decorators.py
+├── tests/               # Test suite
+├── docs/                # Documentation
+│   └── web-ui.md        # Web UI guide
 ├── scripts/
 │   ├── install.sh       # Install package
 │   ├── install-systemd.sh # Install systemd timer
+│   ├── install-systemd-web.sh # Install web UI service
 │   └── uninstall.sh     # Uninstall everything
+├── systemd/             # Systemd service files
+│   └── music-ferry-web.service
 └── pyproject.toml
 ```
 

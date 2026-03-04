@@ -89,6 +89,29 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
         help="Run transfer without prompts (auto-select to fit size limits)",
     )
 
+    # serve command (web UI)
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Start the web UI server",
+    )
+    serve_parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Host to bind to (default: 127.0.0.1)",
+    )
+    serve_parser.add_argument(
+        "--port",
+        type=int,
+        default=4444,
+        help="Port to listen on (default: 4444)",
+    )
+    serve_parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload for development",
+    )
+
     return parser.parse_args(args)
 
 
@@ -138,6 +161,33 @@ def cmd_transfer(config, verbose: bool, auto: bool) -> int:
         return 1
 
 
+def cmd_serve(config, host: str, port: int, reload: bool) -> int:
+    """Run serve command - start the web UI server."""
+    import uvicorn
+
+    from music_ferry.web import create_app
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"Starting Music Ferry web UI on http://{host}:{port}")
+
+    try:
+        app = create_app(config)
+        uvicorn.run(
+            app,
+            host=host,
+            port=port,
+            reload=reload,
+            log_level="info" if not reload else "debug",
+        )
+        return 0
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+        return 130
+    except Exception as e:
+        logger.exception(f"Server error: {e}")
+        return 1
+
+
 def main() -> int:
     args = parse_args()
     setup_logging(args.verbose)
@@ -157,6 +207,8 @@ def main() -> int:
         return cmd_sync(config, args.verbose)
     elif args.command == "transfer":
         return cmd_transfer(config, args.verbose, args.auto)
+    elif args.command == "serve":
+        return cmd_serve(config, args.host, args.port, args.reload)
     else:
         logger.error(f"Unknown command: {args.command}")
         return 1

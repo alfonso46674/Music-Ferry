@@ -1,0 +1,30 @@
+# Music Ferry Web UI systemd user service
+# Install to: ~/.config/systemd/user/music-ferry-web.service
+# Enable with: systemctl --user enable --now music-ferry-web.service
+
+[Unit]
+Description=Music Ferry Web UI
+Documentation=https://github.com/alfonso46674/music-ferry
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.music-ferry/venv/bin/music-ferry serve --host 0.0.0.0 --port 4444
+Restart=on-failure
+RestartSec=5
+
+# Resource limits
+MemoryMax=64M
+CPUQuota=50%
+
+# Environment
+Environment="HOME=%h"
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=music-ferry-web
+
+[Install]
+WantedBy=default.target

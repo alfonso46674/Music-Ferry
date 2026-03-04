@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Ferry</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <header>
+        <h1>Music Ferry</h1>
+        <p class="subtitle">Ferry music from Spotify and YouTube to your headphones</p>
+    </header>
+
+    <main>
+        <section id="status-section" class="card">
+            <h2>Status</h2>
+            <div id="status">
+                <p><strong>Syncing:</strong> <span id="syncing">Loading...</span></p>
+                <p><strong>Last Sync:</strong> <span id="last-sync">Loading...</span></p>
+            </div>
+            <button id="sync-btn" class="btn btn-primary">Trigger Sync</button>
+        </section>
+
+        <section id="library-section" class="card">
+            <h2>Library Summary</h2>
+            <div id="library">
+                <div class="source-card">
+                    <h3>Spotify</h3>
+                    <p><strong>Tracks:</strong> <span id="spotify-tracks">-</span></p>
+                    <p><strong>Playlists:</strong> <span id="spotify-playlists">-</span></p>
+                    <p><strong>Size:</strong> <span id="spotify-size">-</span></p>
+                </div>
+                <div class="source-card">
+                    <h3>YouTube</h3>
+                    <p><strong>Tracks:</strong> <span id="youtube-tracks">-</span></p>
+                    <p><strong>Playlists:</strong> <span id="youtube-playlists">-</span></p>
+                    <p><strong>Size:</strong> <span id="youtube-size">-</span></p>
+                </div>
+                <div class="source-card total">
+                    <h3>Total</h3>
+                    <p><strong>Tracks:</strong> <span id="total-tracks">-</span></p>
+                    <p><strong>Playlists:</strong> <span id="total-playlists">-</span></p>
+                    <p><strong>Size:</strong> <span id="total-size">-</span></p>
+                </div>
+            </div>
+        </section>
+
+        <section id="logs-section" class="card">
+            <h2>Live Logs</h2>
+            <div id="logs-container">
+                <pre id="logs"></pre>
+            </div>
+            <div class="log-controls">
+                <button id="toggle-logs" class="btn btn-secondary">Pause</button>
+                <button id="clear-logs" class="btn btn-secondary">Clear</button>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Music Ferry v<span id="version">-</span> | <a href="metrics">Prometheus Metrics</a></p>
+    </footer>
+
+    <script src="static/app.js"></script>
+</body>
+</html>
