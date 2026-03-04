@@ -46,6 +46,28 @@
             </div>
         </section>
 
+        <section id="headphones-section" class="card">
+            <h2>Headphones</h2>
+            <p><strong>Configured Mount:</strong> <span id="configured-mount">-</span></p>
+            <p><strong>Scan Results:</strong> <span id="headphones-count">-</span></p>
+            <div class="headphones-controls">
+                <button id="scan-headphones-btn" class="btn btn-secondary">Scan Headphones</button>
+                <select id="headphones-device-select" aria-label="Select headphones device"></select>
+                <button id="ensure-access-btn" class="btn btn-secondary">Make Accessible</button>
+            </div>
+            <div class="headphones-controls">
+                <select id="transfer-source-select" aria-label="Select transfer source">
+                    <option value="all">Spotify + YouTube</option>
+                    <option value="spotify">Spotify only</option>
+                    <option value="youtube">YouTube only</option>
+                </select>
+                <button id="transfer-headphones-btn" class="btn btn-primary">
+                    Transfer to Selected Headphones
+                </button>
+            </div>
+            <p id="headphones-status" class="status-message">Scan to detect connected headphones.</p>
+        </section>
+
         <section id="logs-section" class="card">
             <h2>Live Logs</h2>
             <div id="logs-container">

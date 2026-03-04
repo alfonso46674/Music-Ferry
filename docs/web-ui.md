@@ -1,6 +1,6 @@
 # Music Ferry Web UI
 
-Music Ferry includes a built-in web UI for monitoring your library, triggering syncs, and viewing logs.
+Music Ferry includes a built-in web UI for monitoring your library, triggering syncs, managing headphones transfer, and viewing logs.
 
 ## Quick Start
 
@@ -25,6 +25,7 @@ The web UI provides a real-time dashboard showing:
 
 - **Sync Status**: Whether a sync is running, last sync time
 - **Library Summary**: Track counts, playlist counts, and total size for Spotify and YouTube
+- **Headphones Control**: Scan mount points, prepare accessibility, and transfer to selected device
 - **Live Logs**: Streaming log output via Server-Sent Events
 
 ### REST API
@@ -40,6 +41,9 @@ All data is available via a REST API at `/api/v1/`:
 | `/api/v1/config` | GET | Configuration (secrets redacted) |
 | `/api/v1/sync` | POST | Trigger a sync operation |
 | `/api/v1/sync/{job_id}` | GET | Get sync job status |
+| `/api/v1/headphones/scan` | GET | Scan connected/configured headphone mount points |
+| `/api/v1/headphones/access` | POST | Ensure selected mount has accessible music folder |
+| `/api/v1/headphones/transfer` | POST | Transfer selected source(s) to selected mount |
 | `/api/v1/logs/stream` | GET | SSE stream of log lines |
 
 ### Prometheus Metrics

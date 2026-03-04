@@ -137,6 +137,37 @@ main {
     background: #3d4a6a;
 }
 
+.headphones-controls {
+    margin-top: 0.75rem;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+#headphones-device-select,
+#transfer-source-select {
+    min-width: 220px;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-color);
+    color: var(--text-color);
+}
+
+.status-message {
+    margin-top: 1rem;
+    color: var(--text-muted);
+}
+
+.status-message.status-success {
+    color: var(--accent-color);
+}
+
+.status-message.status-error {
+    color: var(--danger-color);
+}
+
 /* Status section */
 #status p {
     margin-bottom: 0.5rem;
@@ -217,5 +248,15 @@ footer a:hover {
 
     #library {
         grid-template-columns: 1fr;
+    }
+
+    .headphones-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #headphones-device-select,
+    #transfer-source-select {
+        width: 100%;
     }
 }

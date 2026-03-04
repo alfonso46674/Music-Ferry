@@ -1,9 +1,9 @@
 # tests/test_web_api.py
 """Tests for the Music Ferry web API."""
 
-import pytest
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from music_ferry.config import (
@@ -16,6 +16,7 @@ from music_ferry.config import (
     TransferConfig,
     YouTubeConfig,
 )
+from music_ferry.library import Library
 
 
 @pytest.fixture
@@ -133,6 +134,86 @@ class TestSyncEndpoint:
         data = response.json()
         assert "error" in data
         assert data["error"] == "Job not found"
+
+
+class TestHeadphonesEndpoints:
+    def test_headphones_scan_includes_configured_mount(
+        self,
+        client: TestClient,
+        mock_config: Config,
+    ):
+        response = client.get("/api/v1/headphones/scan")
+        assert response.status_code == 200
+        data = response.json()
+        assert "devices" in data
+        assert data["configured_mount"] == str(mock_config.paths.headphones_mount)
+
+        configured = next(
+            (
+                device
+                for device in data["devices"]
+                if device["mount_path"] == str(mock_config.paths.headphones_mount)
+            ),
+            None,
+        )
+        assert configured is not None
+        assert configured["connected"] is False
+
+    def test_headphones_access_creates_music_folder(
+        self,
+        client: TestClient,
+        mock_config: Config,
+    ):
+        mount = mock_config.paths.headphones_mount
+        mount.mkdir(parents=True, exist_ok=True)
+
+        response = client.post(
+            "/api/v1/headphones/access",
+            json={"mount_path": str(mount)},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["ok"] is True
+
+        destination = mount / mock_config.paths.headphones_music_folder
+        assert destination.exists()
+        assert destination.is_dir()
+
+    def test_headphones_transfer_copies_selected_source(
+        self,
+        client: TestClient,
+        mock_config: Config,
+    ):
+        spotify_dir = mock_config.paths.music_dir / "spotify"
+        spotify_music = spotify_dir / "music"
+        spotify_music.mkdir(parents=True, exist_ok=True)
+
+        library = Library(spotify_dir / "library.json")
+        library.add_track(
+            "track1",
+            "track1.mp3",
+            "Track One",
+            "Artist One",
+            "playlist1",
+            size_bytes=4,
+        )
+        library.update_playlist("playlist1", "Playlist One", 1, track_order=["track1"])
+        (spotify_music / "track1.mp3").write_bytes(b"data")
+
+        mount = mock_config.paths.headphones_mount
+        destination = mount / mock_config.paths.headphones_music_folder
+        destination.mkdir(parents=True, exist_ok=True)
+
+        response = client.post(
+            "/api/v1/headphones/transfer",
+            json={"mount_path": str(mount), "source": "spotify"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["ok"] is True
+        assert data["copied"] == 1
+        assert (destination / "track1.mp3").exists()
+        assert data["status"]["new_to_transfer"] == 0
 
 
 class TestCLIServeCommand:
