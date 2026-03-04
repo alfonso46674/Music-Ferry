@@ -80,6 +80,57 @@ class TestYouTubeDownloader:
         mock_ydl.download.assert_called_once()
         assert result == downloader.output_dir / "dQw4w9WgXcQ.mp3"
 
+    @patch("music_ferry.youtube.downloader.yt_dlp.YoutubeDL")
+    def test_download_track_passes_cookiefile(self, mock_ydl_class, tmp_path: Path):
+        mock_ydl = MagicMock()
+        mock_ydl_class.return_value.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl_class.return_value.__exit__ = MagicMock(return_value=False)
+
+        cookies_path = tmp_path / "youtube-cookies.txt"
+        downloader = YouTubeDownloader(
+            output_dir=tmp_path / "music",
+            bitrate=192,
+            cookies_file=cookies_path,
+        )
+        track = Track(
+            id="dQw4w9WgXcQ",
+            name="Never Gonna Give You Up",
+            artists=["Rick Astley"],
+            album="Test Playlist",
+            duration_ms=213000,
+            album_art_url=None,
+            source="youtube",
+        )
+
+        downloader.download_track(track)
+
+        ydl_opts = mock_ydl_class.call_args[0][0]
+        assert ydl_opts["cookiefile"] == str(cookies_path)
+
+    @patch("music_ferry.youtube.downloader.yt_dlp.YoutubeDL")
+    def test_get_playlist_tracks_passes_cookiefile(
+        self, mock_ydl_class, tmp_path: Path
+    ):
+        mock_ydl = MagicMock()
+        mock_ydl_class.return_value.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl_class.return_value.__exit__ = MagicMock(return_value=False)
+        mock_ydl.extract_info.return_value = {"entries": []}
+
+        cookies_path = tmp_path / "youtube-cookies.txt"
+        downloader = YouTubeDownloader(
+            output_dir=tmp_path / "music",
+            bitrate=192,
+            cookies_file=cookies_path,
+        )
+
+        downloader.get_playlist_tracks(
+            "https://www.youtube.com/playlist?list=PLtest",
+            playlist_name="Test Playlist",
+        )
+
+        ydl_opts = mock_ydl_class.call_args[0][0]
+        assert ydl_opts["cookiefile"] == str(cookies_path)
+
     @patch("music_ferry.youtube.downloader.time.sleep")
     @patch("music_ferry.youtube.downloader.random.uniform")
     def test_download_tracks_with_delay(self, mock_random, mock_sleep, downloader):

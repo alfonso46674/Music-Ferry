@@ -20,11 +20,13 @@ class YouTubeDownloader:
         bitrate: int = 192,
         max_retries: int = 1,
         retry_delay_seconds: float = 5.0,
+        cookies_file: Path | None = None,
     ):
         self.output_dir = output_dir
         self.bitrate = bitrate
         self.max_retries = max_retries
         self.retry_delay_seconds = retry_delay_seconds
+        self.cookies_file = cookies_file.expanduser() if cookies_file else None
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def get_playlist_tracks(self, playlist_url: str, playlist_name: str) -> list[Track]:
@@ -38,6 +40,8 @@ class YouTubeDownloader:
             "extract_flat": False,
             "skip_download": True,
         }
+        if self.cookies_file:
+            ydl_opts["cookiefile"] = str(self.cookies_file)
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(playlist_url, download=False)
@@ -96,7 +100,7 @@ class YouTubeDownloader:
         output_template = str(self.output_dir / f"{track.id}.%(ext)s")
 
         ydl_opts = {
-            "format": "bestaudio/best",
+            "format": "bestaudio[ext=m4a]/bestaudio/best",
             "outtmpl": output_template,
             "postprocessors": [
                 {
@@ -115,7 +119,24 @@ class YouTubeDownloader:
             "quiet": True,
             "no_warnings": True,
             "progress_hooks": [self._progress_hook],
+            # Robust defaults for long videos and transient CDN/extractor failures.
+            "retries": 10,
+            "fragment_retries": 10,
+            "extractor_retries": 3,
+            "file_access_retries": 3,
+            "concurrent_fragment_downloads": 1,
+            "sleep_interval_requests": 1,
+            "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+            "http_headers": {
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/131.0.0.0 Safari/537.36"
+                )
+            },
         }
+        if self.cookies_file:
+            ydl_opts["cookiefile"] = str(self.cookies_file)
 
         video_url = f"https://www.youtube.com/watch?v={track.id}"
 

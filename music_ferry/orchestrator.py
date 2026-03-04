@@ -286,6 +286,7 @@ class Orchestrator:
             bitrate=self.config.audio.bitrate,
             max_retries=self.config.youtube.retry_count,
             retry_delay_seconds=self.config.youtube.retry_delay_seconds,
+            cookies_file=getattr(self.config.youtube, "cookies_file", None),
         )
 
         for playlist in self.config.youtube.playlists:

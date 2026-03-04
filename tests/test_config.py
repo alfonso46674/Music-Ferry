@@ -139,6 +139,7 @@ class TestYouTubeConfig:
                         "enabled": True,
                         "retry_count": 2,
                         "retry_delay_seconds": 7.5,
+                        "cookies_file": "~/.music-ferry/cookies/youtube.txt",
                         "playlists": [
                             {
                                 "name": "YT Playlist",
@@ -176,6 +177,10 @@ class TestYouTubeConfig:
         assert config.youtube.playlists[0].name == "YT Playlist"
         assert config.youtube.retry_count == 2
         assert config.youtube.retry_delay_seconds == 7.5
+        assert (
+            config.youtube.cookies_file
+            == Path.home() / ".music-ferry" / "cookies" / "youtube.txt"
+        )
 
     def test_load_config_youtube_disabled_by_default(self, tmp_path: Path):
         config_file = tmp_path / "config.yaml"
@@ -213,6 +218,7 @@ class TestYouTubeConfig:
         assert config.spotify.enabled is True
         assert config.youtube.enabled is False
         assert len(config.youtube.playlists) == 0
+        assert config.youtube.cookies_file is None
 
     def test_load_config_migrates_root_playlists(self, tmp_path: Path):
         """Test backward compatibility: playlists at root level migrate to spotify.playlists."""

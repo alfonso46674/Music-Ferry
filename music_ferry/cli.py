@@ -2,6 +2,7 @@
 import argparse
 import asyncio
 import logging
+from logging.handlers import RotatingFileHandler
 import sys
 from pathlib import Path
 
@@ -16,6 +17,31 @@ def setup_logging(verbose: bool = False) -> None:
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
+
+
+def configure_file_logging(config, verbose: bool = False) -> None:
+    log_dir = config.paths.music_dir / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "sync.log"
+
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        if isinstance(handler, RotatingFileHandler) and getattr(
+            handler, "baseFilename", None
+        ) == str(log_file):
+            return
+
+    level = logging.DEBUG if verbose else logging.INFO
+    handler = RotatingFileHandler(
+        log_file,
+        maxBytes=10 * 1024 * 1024,
+        backupCount=5,
+    )
+    handler.setLevel(level)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    root_logger.addHandler(handler)
 
 
 def _add_source_flags(parser: argparse.ArgumentParser) -> None:
@@ -202,6 +228,8 @@ def main() -> int:
     except ValueError as e:
         logger.error(f"Invalid config: {e}")
         return 1
+
+    configure_file_logging(config, args.verbose)
 
     if args.command == "sync":
         return cmd_sync(config, args.verbose)

@@ -42,6 +42,7 @@ class YouTubeConfig:
     playlists: list[PlaylistConfig] = field(default_factory=list)
     retry_count: int = 1
     retry_delay_seconds: float = 5.0
+    cookies_file: Path | None = None
 
 
 @dataclass
@@ -148,6 +149,11 @@ def load_config(config_path: Path) -> Config:
         playlists=youtube_playlists,
         retry_count=youtube_data.get("retry_count", 1),
         retry_delay_seconds=youtube_data.get("retry_delay_seconds", 5.0),
+        cookies_file=(
+            Path(youtube_data["cookies_file"]).expanduser()
+            if youtube_data.get("cookies_file")
+            else None
+        ),
     )
 
     audio_data = data.get("audio", {})

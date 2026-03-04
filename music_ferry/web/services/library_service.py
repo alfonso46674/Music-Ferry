@@ -145,6 +145,11 @@ class LibraryService:
                 "enabled": self.config.youtube.enabled,
                 "retry_count": self.config.youtube.retry_count,
                 "retry_delay_seconds": self.config.youtube.retry_delay_seconds,
+                "cookies_file": (
+                    str(self.config.youtube.cookies_file)
+                    if self.config.youtube.cookies_file
+                    else None
+                ),
                 "playlists": [
                     {"name": p.name, "url": p.url, "max_gb": p.max_gb}
                     for p in self.config.youtube.playlists

@@ -113,6 +113,7 @@ youtube:
   enabled: false
   retry_count: 1
   retry_delay_seconds: 5.0
+  cookies_file: "~/.music-ferry/cookies/youtube-cookies.txt"  # optional
   playlists:
     - name: "Coding Music"
       url: "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID"
@@ -167,6 +168,10 @@ YouTube playlists are downloaded directly using yt-dlp - no browser automation r
 
 - `youtube.retry_count`: how many retries per track (default: 1)
 - `youtube.retry_delay_seconds`: base delay before retry in seconds (default: 5.0)
+
+**YouTube auth option (for persistent 403 / restricted videos):**
+
+- `youtube.cookies_file`: path to a Netscape-format YouTube cookies file exported from your browser session
 
 **Source flags:**
 
