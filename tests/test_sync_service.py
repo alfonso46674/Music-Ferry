@@ -1,7 +1,9 @@
 """Tests for web sync scheduling service."""
 
+from datetime import datetime
 from pathlib import Path
 
+import pytest
 from fastapi import FastAPI
 
 from music_ferry.config import (
@@ -14,7 +16,7 @@ from music_ferry.config import (
     TransferConfig,
     YouTubeConfig,
 )
-from music_ferry.web.services.sync_service import SyncService
+from music_ferry.web.services.sync_service import JobStatus, SyncJob, SyncService
 
 
 def make_config(tmp_path: Path) -> Config:
@@ -103,3 +105,41 @@ class TestSyncServiceSchedule:
             assert "Source must be one of: all, spotify, youtube." in str(exc)
         else:  # pragma: no cover - explicit assertion path
             raise AssertionError("Expected ValueError for invalid schedule source")
+
+
+@pytest.mark.asyncio
+async def test_run_sync_uses_worker_thread(monkeypatch, tmp_path: Path):
+    service = make_service(tmp_path)
+    called = False
+
+    class FakeResult:
+        total_tracks = 1
+        is_success = True
+        has_errors = False
+        playlists = []
+
+    async def fake_to_thread(func, *args, **kwargs):
+        nonlocal called
+        called = True
+        assert func == service._run_orchestrator_blocking
+        return FakeResult()
+
+    monkeypatch.setattr(
+        "music_ferry.web.services.sync_service.asyncio.to_thread",
+        fake_to_thread,
+    )
+
+    job = SyncJob(
+        job_id="abc12345",
+        status=JobStatus.RUNNING,
+        started_at=datetime.now(),
+    )
+    service._current_job = job
+    service._job_history[job.job_id] = job
+
+    await service._run_sync(job, sync_spotify=False, sync_youtube=True)
+
+    assert called is True
+    assert job.status == JobStatus.COMPLETED
+    assert job.result is not None
+    assert job.result["total_tracks"] == 1

@@ -192,13 +192,13 @@ class SyncService:
         sync_youtube: bool,
     ) -> None:
         """Run the actual sync operation."""
-        from music_ferry.orchestrator import Orchestrator
-
         config = self.app.state.config
 
         try:
-            orchestrator = Orchestrator(config)
-            result = await orchestrator.run(
+            # Run orchestration in a worker thread to keep the web event loop responsive.
+            result = await asyncio.to_thread(
+                self._run_orchestrator_blocking,
+                config,
                 sync_spotify=sync_spotify,
                 sync_youtube=sync_youtube,
             )
@@ -234,6 +234,24 @@ class SyncService:
             async with self._lock:
                 self._current_job = None
                 self._cleanup_history()
+
+    def _run_orchestrator_blocking(
+        self,
+        config,
+        *,
+        sync_spotify: bool,
+        sync_youtube: bool,
+    ):
+        """Run orchestrator coroutine on a dedicated event loop in a worker thread."""
+        from music_ferry.orchestrator import Orchestrator
+
+        orchestrator = Orchestrator(config)
+        return asyncio.run(
+            orchestrator.run(
+                sync_spotify=sync_spotify,
+                sync_youtube=sync_youtube,
+            )
+        )
 
     async def _scheduler_loop(self) -> None:
         """Run scheduled syncs based on persisted UI settings."""
