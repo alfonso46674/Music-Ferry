@@ -17,6 +17,19 @@ music-ferry serve --reload
 
 The dashboard will be available at `http://127.0.0.1:4444`
 
+### Docker Compose
+
+To run web UI + API in Docker:
+
+```bash
+cp .env.docker.example .env.docker
+docker compose --env-file .env.docker up -d --build
+```
+
+Note: headphone transfer in Docker requires host removable-media paths to be bind-mounted.
+The provided `docker-compose.yml` mounts `/media` and `/run/media` with mount propagation,
+so re-mounted headphones become visible without restarting containers.
+
 ## Features
 
 ### Dashboard
@@ -24,6 +37,7 @@ The dashboard will be available at `http://127.0.0.1:4444`
 The web UI provides a real-time dashboard showing:
 
 - **Sync Status**: Whether a sync is running, last sync time
+- **Schedule Control**: Enable/disable automatic sync, set time, and choose source
 - **Library Summary**: Track counts, playlist counts, and total size for Spotify and YouTube
 - **Headphones Control**: Scan mount points, prepare accessibility, and transfer to selected device
 - **Live Logs**: Streaming log output via Server-Sent Events
@@ -40,6 +54,8 @@ All data is available via a REST API at `/api/v1/`:
 | `/api/v1/library/{source}` | GET | Detailed library for spotify/youtube |
 | `/api/v1/config` | GET | Configuration (secrets redacted) |
 | `/api/v1/sync` | POST | Trigger a sync operation |
+| `/api/v1/schedule` | GET | Read automatic sync schedule |
+| `/api/v1/schedule` | POST | Update automatic sync schedule |
 | `/api/v1/sync/{job_id}` | GET | Get sync job status |
 | `/api/v1/headphones/scan` | GET | Scan connected/configured headphone mount points |
 | `/api/v1/headphones/access` | POST | Ensure selected mount has accessible music folder |
@@ -221,6 +237,24 @@ Response:
 {
   "job_id": "a1b2c3d4",
   "status": "started"
+}
+```
+
+### Configure Schedule
+
+```bash
+curl -X POST http://localhost:4444/api/v1/schedule \
+  -H 'Content-Type: application/json' \
+  -d '{"enabled": true, "time": "05:30", "source": "youtube"}'
+```
+
+Response:
+```json
+{
+  "enabled": true,
+  "time": "05:30",
+  "source": "youtube",
+  "next_run": "2024-01-27T05:30:00"
 }
 ```
 

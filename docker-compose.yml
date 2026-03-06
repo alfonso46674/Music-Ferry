@@ -1,75 +1,51 @@
 # Music Ferry Docker Compose
 #
 # Usage:
-#   docker compose up -d          # Start web UI
-#   docker compose run --rm sync  # Manual sync (YouTube only by default)
+#   docker compose --env-file .env.docker up -d --build
+#   docker compose --env-file .env.docker logs -f web
 #
-# For Spotify sync (requires audio passthrough - Linux only):
-#   docker compose --profile spotify up -d
-#   docker compose run --rm spotify-sync
+# Notes:
+# - Sync scheduling now runs inside the web app and is configurable in the UI.
+# - Manual transfer is triggered from the web UI.
+# - Host media paths are mounted with propagation so re-mounted headphones appear
+#   in the container without restarting.
 
 services:
-  # Web UI - always runs
   web:
-    build: .
+    build:
+      context: .
+      args:
+        INSTALL_PLAYWRIGHT: "false"
     container_name: music-ferry-web
     restart: unless-stopped
     ports:
-      - "4444:4444"
+      - "${MUSIC_FERRY_PORT:-4444}:4444"
     volumes:
-      - ${MUSIC_FERRY_DATA:-~/.music-ferry}:/home/ferry/.music-ferry
+      - type: bind
+        source: ${MUSIC_FERRY_DATA:?Set MUSIC_FERRY_DATA to your host data dir}
+        target: /home/ferry/.music-ferry
+      - type: bind
+        source: ${HOST_MEDIA_DIR:-/media}
+        target: /media
+        bind:
+          propagation: rslave
+      - type: bind
+        source: ${HOST_RUN_MEDIA_DIR:-/run/media}
+        target: /run/media
+        bind:
+          propagation: rslave
     environment:
       - TZ=${TZ:-UTC}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4444/api/v1/health"]
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:4444/api/v1/health', timeout=5).read()",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
     mem_limit: 64m
     cpus: 0.5
-
-  # YouTube sync (no audio needed) - run manually or via scheduler
-  sync:
-    build: .
-    container_name: music-ferry-sync
-    profiles: ["sync"]
-    volumes:
-      - ${MUSIC_FERRY_DATA:-~/.music-ferry}:/home/ferry/.music-ferry
-    environment:
-      - TZ=${TZ:-UTC}
-    command: ["music-ferry", "sync", "--youtube"]
-    mem_limit: 128m
-
-  # Spotify sync (requires audio passthrough) - Linux only
-  spotify-sync:
-    build: .
-    container_name: music-ferry-spotify-sync
-    profiles: ["spotify"]
-    volumes:
-      - ${MUSIC_FERRY_DATA:-~/.music-ferry}:/home/ferry/.music-ferry
-      # PulseAudio socket for audio recording
-      - ${XDG_RUNTIME_DIR:-/run/user/1000}/pulse:/run/user/1000/pulse
-      - /etc/machine-id:/etc/machine-id:ro
-    environment:
-      - TZ=${TZ:-UTC}
-      - PULSE_SERVER=unix:/run/user/1000/pulse/native
-      - DISPLAY=:99
-    command: >
-      sh -c "Xvfb :99 -screen 0 1920x1080x24 &
-             sleep 2 &&
-             music-ferry sync --spotify"
-    mem_limit: 256m
-
-  # Optional: Scheduled sync using ofelia
-  scheduler:
-    image: mcuadros/ofelia:latest
-    container_name: music-ferry-scheduler
-    profiles: ["scheduled"]
-    depends_on:
-      - web
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    command: daemon --docker
-    labels:
-      ofelia.job-run.youtube-sync.schedule: "0 0 5 * * *"  # 5am daily
-      ofelia.job-run.youtube-sync.container: "music-ferry-sync"

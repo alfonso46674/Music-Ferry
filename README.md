@@ -257,6 +257,8 @@ The `transfer` command provides an interactive menu:
 The `serve` command starts a web dashboard with:
 - **Real-time status** - sync state, library stats
 - **Trigger syncs** - start sync from the browser
+- **Schedule control** - configure automatic sync time/source from the browser
+- **Headphones transfer** - scan, prepare, and transfer to selected device
 - **Live logs** - streaming log output via SSE
 - **Prometheus metrics** - exposed at `/metrics`
 
@@ -304,6 +306,82 @@ systemctl --user disable music-ferry.timer
 
 Transfer is always manual (your headphones may not be connected during automated runs).
 
+### Docker Compose (No Systemd)
+
+You can run the full app with Docker Compose (single always-on web container) and stop using systemd.
+
+**1) Disable existing systemd units (host):**
+
+```bash
+systemctl --user disable --now music-ferry-web.service || true
+systemctl --user disable --now music-ferry.timer || true
+```
+
+**2) Create Docker env file:**
+
+```bash
+cp .env.docker.example .env.docker
+# Edit .env.docker and set MUSIC_FERRY_DATA to your host data directory
+```
+
+`MUSIC_FERRY_DATA` must point to the folder that contains your `config.yaml`
+(for example `~/.music-ferry`).
+
+**3) Configure YouTube-only mode in your config.yaml:**
+
+```yaml
+spotify:
+  enabled: false
+youtube:
+  enabled: true
+paths:
+  # Keep this as the real host mount path.
+  # The container bind-mounts /media and /run/media with mount propagation.
+  headphones_mount: "/media/YOUR_USER/HEADPHONES"
+```
+
+**4) Start the container:**
+
+```bash
+docker compose --env-file .env.docker up -d --build
+```
+
+**5) Configure automatic sync schedule in UI:**
+
+Open the dashboard and set:
+1. `Schedule` -> enable automatic sync
+2. Time (HH:MM local time)
+3. Source (`youtube` / `all` / `spotify`)
+
+This replaces the old cron/systemd timer behavior while keeping idle resource usage low.
+
+**Headphones remount/unlock workflow (host side):**
+
+Containers can transfer files, but mounting/unlocking removable storage should be done on the host:
+
+```bash
+# Plain partition
+./scripts/headphones-mount.sh --device /dev/sdb1
+
+# Encrypted (LUKS) volume
+./scripts/headphones-mount.sh --unlock-device /dev/sdb2
+```
+
+After mounting, open the web UI and use:
+1. `Scan Headphones`
+2. `Make Accessible` (if needed)
+3. `Transfer to Selected Headphones`
+
+You can still trigger sync manually from the UI with `Trigger Sync`.
+
+Unmount/lock when done:
+
+```bash
+./scripts/headphones-unmount.sh --device /dev/sdb1
+# or with lock
+./scripts/headphones-unmount.sh --device /dev/mapper/<name> --lock-device /dev/sdb2
+```
+
 ## Project Structure
 
 ```
@@ -340,6 +418,8 @@ music-ferry/
 │   ├── install.sh       # Install package
 │   ├── install-systemd.sh # Install systemd timer
 │   ├── install-systemd-web.sh # Install web UI service
+│   ├── headphones-mount.sh # Host helper to unlock/mount removable media
+│   ├── headphones-unmount.sh # Host helper to unmount/lock removable media
 │   └── uninstall.sh     # Uninstall everything
 ├── systemd/             # Systemd service files
 │   └── music-ferry-web.service

@@ -18,8 +18,31 @@
             <div id="status">
                 <p><strong>Syncing:</strong> <span id="syncing">Loading...</span></p>
                 <p><strong>Last Sync:</strong> <span id="last-sync">Loading...</span></p>
+                <p><strong>Next Scheduled:</strong> <span id="next-scheduled">Loading...</span></p>
             </div>
             <button id="sync-btn" class="btn btn-primary">Trigger Sync</button>
+        </section>
+
+        <section id="schedule-section" class="card">
+            <h2>Schedule</h2>
+            <div class="schedule-controls">
+                <label for="schedule-enabled">
+                    <input id="schedule-enabled" type="checkbox">
+                    Enable automatic sync
+                </label>
+            </div>
+            <div class="schedule-controls">
+                <label for="schedule-time">Time</label>
+                <input id="schedule-time" type="time" value="05:00">
+                <label for="schedule-source">Source</label>
+                <select id="schedule-source" aria-label="Select scheduled sync source">
+                    <option value="youtube">YouTube only</option>
+                    <option value="all">Spotify + YouTube</option>
+                    <option value="spotify">Spotify only</option>
+                </select>
+                <button id="save-schedule-btn" class="btn btn-secondary">Save Schedule</button>
+            </div>
+            <p id="schedule-status" class="status-message">Loading schedule...</p>
         </section>
 
         <section id="library-section" class="card">

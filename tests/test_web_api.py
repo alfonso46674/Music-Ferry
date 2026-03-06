@@ -136,6 +136,29 @@ class TestSyncEndpoint:
         assert data["error"] == "Job not found"
 
 
+class TestScheduleEndpoints:
+    def test_schedule_get_returns_defaults(self, client: TestClient):
+        response = client.get("/api/v1/schedule")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["enabled"] is False
+        assert data["time"] == "05:00"
+        assert data["source"] == "youtube"
+        assert data["next_run"] is None
+
+    def test_schedule_post_updates_settings(self, client: TestClient):
+        response = client.post(
+            "/api/v1/schedule",
+            json={"enabled": True, "time": "06:30", "source": "all"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["enabled"] is True
+        assert data["time"] == "06:30"
+        assert data["source"] == "all"
+        assert data["next_run"] is not None
+
+
 class TestHeadphonesEndpoints:
     def test_headphones_scan_includes_configured_mount(
         self,

@@ -28,6 +28,14 @@ class HeadphonesTransferRequest(BaseModel):
     source: str = Field(default="all", pattern="^(all|spotify|youtube)$")
 
 
+class ScheduleUpdateRequest(BaseModel):
+    """Request payload for updating automatic sync schedule."""
+
+    enabled: bool
+    time: str = Field(default="05:00", pattern=r"^\d{2}:\d{2}$")
+    source: str = Field(default="youtube", pattern="^(all|spotify|youtube)$")
+
+
 @router.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
@@ -45,7 +53,7 @@ async def get_status(request: Request) -> dict[str, Any]:
     return {
         "syncing": sync_service.is_syncing,
         "last_sync": sync_service.last_sync_time,
-        "next_scheduled": None,  # No scheduler implemented yet
+        "next_scheduled": sync_service.next_scheduled_time,
         "current_job_id": sync_service.current_job_id,
     }
 
@@ -94,6 +102,30 @@ async def trigger_sync(request: Request) -> dict[str, Any]:
         }
 
     return {"job_id": job_id, "status": "started"}
+
+
+@router.get("/schedule")
+async def get_schedule(request: Request) -> dict[str, Any]:
+    """Get current automatic sync schedule settings."""
+    sync_service = get_sync_service(request.app)
+    return sync_service.get_schedule()
+
+
+@router.post("/schedule")
+async def update_schedule(
+    payload: ScheduleUpdateRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """Update automatic sync schedule settings."""
+    sync_service = get_sync_service(request.app)
+    try:
+        return sync_service.update_schedule(
+            enabled=payload.enabled,
+            time=payload.time,
+            source=payload.source,
+        )
+    except ValueError as exc:
+        return {"error": str(exc)}
 
 
 @router.get("/sync/{job_id}")
