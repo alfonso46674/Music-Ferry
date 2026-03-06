@@ -138,6 +138,28 @@ function updateHeadphonesDropdown(configuredMount) {
     elements.headphonesDeviceSelect.disabled = false;
 }
 
+function formatScanCandidatesForLog(devices) {
+    if (!Array.isArray(devices) || devices.length === 0) {
+        return 'none';
+    }
+
+    const maxShown = 6;
+    const shown = devices.slice(0, maxShown).map((device) => {
+        const state = device.accessible
+            ? 'ready'
+            : device.connected
+                ? 'needs-setup'
+                : 'offline';
+        return `${device.mount_path} (${state})`;
+    });
+
+    if (devices.length > maxShown) {
+        shown.push(`+${devices.length - maxShown} more`);
+    }
+
+    return shown.join(', ');
+}
+
 // API Functions
 async function fetchStatus() {
     try {
@@ -267,7 +289,10 @@ async function scanHeadphones(showStatus = false) {
         updateHeadphonesSelectionMessage();
 
         if (showStatus) {
-            appendLog(`[INFO] Headphones scan complete (${headphonesDevices.length} candidates)`);
+            const candidateSummary = formatScanCandidatesForLog(headphonesDevices);
+            appendLog(
+                `[INFO] Headphones scan complete (${headphonesDevices.length} candidates): ${candidateSummary}`,
+            );
         }
     } catch (error) {
         console.error('Failed to scan headphones:', error);
