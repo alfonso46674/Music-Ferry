@@ -15,7 +15,7 @@ Music Ferry - ferrying music to your headphones. Download Spotify and YouTube pl
 7. **Tags MP3 files** with ID3 metadata (title, artist, album, cover art)
 8. **Tracks playlist membership** - knows which tracks belong to which playlists
 9. **Cleans up orphans** - removes tracks no longer in any playlist
-10. **Runs automatically** between 5-8am via systemd timer (randomized)
+10. **Runs automatically** on the schedule configured in the web UI (Docker deployment)
 11. **Transfer on demand** - manual command to transfer to headphones
 12. **Sends notifications** via Ntfy on success/failure
 
@@ -29,20 +29,38 @@ Music Ferry - ferrying music to your headphones. Download Spotify and YouTube pl
 
 ## Installation
 
-### Quick Install (recommended)
+### Docker Compose (recommended)
+
+Music Ferry is now deployed as a Docker Compose stack (no systemd jobs).
 
 ```bash
-# Install the package (uses pipx if available, otherwise a dedicated venv)
-./scripts/install.sh
+# 1) Create Docker env file
+cp .env.docker.example .env.docker
 
-# Install Playwright browser for Spotify
-playwright install chromium
+# 2) Edit .env.docker and set:
+#    - MUSIC_FERRY_DATA (host path with config/library files)
+#    - HOST_MEDIA_DIR and HOST_RUN_MEDIA_DIR if needed
 
-# (Optional) Set up automatic scheduling
-./scripts/install-systemd.sh
+# 3) Start the web container
+docker compose --env-file .env.docker up -d --build
 ```
 
-### Development Install
+Open `http://localhost:4444` and configure automatic sync schedule in the web UI.
+
+### Updating
+
+```bash
+# Pull latest code first, then rebuild/restart
+docker compose --env-file .env.docker up -d --build
+```
+
+### Stop
+
+```bash
+docker compose --env-file .env.docker down
+```
+
+### Local Development (optional)
 
 ```bash
 # Create virtual environment
@@ -52,45 +70,9 @@ source .venv/bin/activate
 # Install in development mode
 pip install -e ".[dev]"
 
-# Install Playwright browser
+# Install Playwright browser (only needed for local Spotify sync/testing)
 playwright install chromium
 ```
-
-### Uninstall
-
-```bash
-./scripts/uninstall.sh
-```
-
-### Updating
-
-**Check your install type:**
-```bash
-pip show music-ferry | grep Location
-# If Location is your project folder → editable install
-# If Location is site-packages → regular install
-```
-
-**After making code changes:**
-
-| Install Type | Action Needed |
-|--------------|---------------|
-| Editable (`pip install -e .`) | Nothing - changes apply immediately |
-| Regular (`pip install .`) | Reinstall: `pip install .` |
-| pipx | Reinstall: `pipx install --force .` |
-
-**Switching install modes:**
-```bash
-# Switch to editable (for development)
-pip install -e ".[dev]"
-
-# Switch to regular (for release/freeze)
-pip install .
-
-# No need to uninstall first - it overwrites automatically
-```
-
-**Systemd timer:** No changes needed when updating code. The timer runs the `music-ferry` command (pipx) or the dedicated venv binary at `~/.music-ferry/venv/bin/music-ferry`, depending on how you installed it.
 
 ## Configuration
 
@@ -263,11 +245,8 @@ The `serve` command starts a web dashboard with:
 - **Prometheus metrics** - exposed at `/metrics`
 
 ```bash
-# Start the web UI
-music-ferry serve --port 4444
-
-# Install as systemd service for auto-start
-./scripts/install-systemd-web.sh
+# Start/rebuild the web UI container
+docker compose --env-file .env.docker up -d --build
 ```
 
 See [docs/web-ui.md](docs/web-ui.md) for full documentation including API reference, reverse proxy setup, and Prometheus configuration.
@@ -282,35 +261,19 @@ The first time you run, you'll need to log into Spotify:
 
 ### Automatic Scheduling
 
-Install the systemd timer for automatic daily syncs:
+Automatic sync is configured from the web UI:
 
-```bash
-# Install systemd units
-./scripts/install-systemd.sh
-
-# Enable the timer
-systemctl --user enable --now music-ferry.timer
-
-# Check timer status
-systemctl --user list-timers music-ferry.timer
-
-# View logs
-journalctl --user -u music-ferry.service -f
-
-# Run sync manually via systemd
-systemctl --user start music-ferry.service
-
-# Disable the timer
-systemctl --user disable music-ferry.timer
-```
+1. Open `Schedule`.
+2. Enable automatic sync.
+3. Set time (HH:MM local time) and source (`youtube` / `all` / `spotify`).
 
 Transfer is always manual (your headphones may not be connected during automated runs).
 
-### Docker Compose (No Systemd)
+### Docker Compose Runtime Details
 
-You can run the full app with Docker Compose (single always-on web container) and stop using systemd.
+Use this if you need migration details beyond the quick install steps.
 
-**1) Disable existing systemd units (host):**
+**1) (Optional) If migrating from an older systemd setup, disable old units:**
 
 ```bash
 systemctl --user disable --now music-ferry-web.service || true
@@ -415,12 +378,13 @@ music-ferry/
 ├── docs/                # Documentation
 │   └── web-ui.md        # Web UI guide
 ├── scripts/
-│   ├── install.sh       # Install package
-│   ├── install-systemd.sh # Install systemd timer
-│   ├── install-systemd-web.sh # Install web UI service
+│   ├── NOTE.md          # Legacy script note
+│   ├── install.sh       # Legacy host install helper
+│   ├── install-systemd.sh # Legacy systemd timer installer
+│   ├── install-systemd-web.sh # Legacy systemd web service installer
 │   ├── headphones-mount.sh # Host helper to unlock/mount removable media
 │   ├── headphones-unmount.sh # Host helper to unmount/lock removable media
-│   └── uninstall.sh     # Uninstall everything
+│   └── uninstall.sh     # Legacy host uninstall helper
 ├── systemd/             # Systemd service files
 │   └── music-ferry-web.service
 └── pyproject.toml
@@ -451,7 +415,7 @@ make install
 # Install locally (editable) in .venv for development
 make install-dev
 
-# Build and install the wheel into the runtime venv used by systemd
+# Build and install the wheel into the local runtime venv
 make install-release
 
 # Run specific test file

@@ -2,22 +2,7 @@
 
 Music Ferry includes a built-in web UI for monitoring your library, triggering syncs, managing headphones transfer, and viewing logs.
 
-## Quick Start
-
-```bash
-# Start the web server
-music-ferry serve
-
-# Or with custom port
-music-ferry serve --port 8080
-
-# Development mode with auto-reload
-music-ferry serve --reload
-```
-
-The dashboard will be available at `http://127.0.0.1:4444`
-
-### Docker Compose
+## Quick Start (Docker Compose)
 
 To run web UI + API in Docker:
 
@@ -26,9 +11,24 @@ cp .env.docker.example .env.docker
 docker compose --env-file .env.docker up -d --build
 ```
 
+The dashboard will be available at `http://127.0.0.1:4444`.
+
 Note: headphone transfer in Docker requires host removable-media paths to be bind-mounted.
 The provided `docker-compose.yml` mounts `/media` and `/run/media` with mount propagation,
 so re-mounted headphones become visible without restarting containers.
+
+### Local Development (optional)
+
+```bash
+# Start local web server (non-Docker development)
+music-ferry serve
+
+# Custom port
+music-ferry serve --port 8080
+
+# Auto-reload
+music-ferry serve --reload
+```
 
 ## Features
 
@@ -102,31 +102,20 @@ The web UI has **no authentication** - it's designed to be accessed only from tr
 
 ## Deployment
 
-### Systemd Service
-
-Install the web UI as a systemd user service for automatic startup:
+### Docker Compose
 
 ```bash
-# Run the install script
-./scripts/install-systemd-web.sh
-```
-
-Or manually:
-
-```bash
-# Copy service file
-mkdir -p ~/.config/systemd/user
-cp systemd/music-ferry-web.service ~/.config/systemd/user/
-
-# Enable and start
-systemctl --user daemon-reload
-systemctl --user enable --now music-ferry-web.service
-
-# Check status
-systemctl --user status music-ferry-web.service
+# Start or rebuild
+docker compose --env-file .env.docker up -d --build
 
 # View logs
-journalctl --user -u music-ferry-web.service -f
+docker compose --env-file .env.docker logs -f web
+
+# Check status
+docker compose --env-file .env.docker ps
+
+# Stop
+docker compose --env-file .env.docker down
 ```
 
 ### Reverse Proxy (Caddy)
@@ -317,7 +306,7 @@ The web UI is designed to be lightweight:
 
 - **RAM at idle**: ~20-30 MB
 - **RAM during sync**: ~40-50 MB (orchestrator overhead)
-- **Systemd limit**: 64 MB max
+- **Docker Compose limit**: 256 MB max (see `docker-compose.yml`)
 - **No database**: Uses existing JSON library files
 
 ## Troubleshooting
