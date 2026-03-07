@@ -1,6 +1,7 @@
 # music_ferry/web/routes/api.py
 """REST API endpoints for Music Ferry web UI."""
 
+import asyncio
 import logging
 from typing import Any
 
@@ -176,7 +177,13 @@ async def transfer_to_headphones(
     service = HeadphonesService(request.app.state.config)
 
     try:
-        return service.transfer_to_mount(payload.mount_path, payload.source)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            service.transfer_to_mount,
+            payload.mount_path,
+            payload.source,
+        )
     except ValueError as exc:
         return {"ok": False, "message": str(exc)}
     except Exception as exc:  # pragma: no cover - defensive fallback
