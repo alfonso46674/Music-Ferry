@@ -127,14 +127,34 @@ class HeadphonesService:
                 "device": device,
             }
 
+        before_status = transfer.compute_status()
         copied, removed = transfer.sync_changes(auto=True)
         status = transfer.compute_status()
+        message = f"Transfer complete: {copied} copied, {removed} removed."
+        if copied == 0 and removed == 0 and before_status.new_to_transfer == 0:
+            message = (
+                "Headphones already up to date: "
+                f"{status.headphones_track_count}/{status.local_track_count} "
+                "tracked tracks present."
+            )
+        elif copied == 0 and before_status.new_to_transfer > 0:
+            message = (
+                "Transfer finished but copied 0 tracks. "
+                "Check free space and reserve settings."
+            )
+
         device = self._describe_mount(mount)
         return {
             "ok": True,
-            "message": f"Transfer complete: {copied} copied, {removed} removed.",
+            "message": message,
             "copied": copied,
             "removed": removed,
+            "before": {
+                "local_track_count": before_status.local_track_count,
+                "headphones_track_count": before_status.headphones_track_count,
+                "new_to_transfer": before_status.new_to_transfer,
+                "orphaned_on_headphones": before_status.orphaned_on_headphones,
+            },
             "status": {
                 "local_track_count": status.local_track_count,
                 "headphones_track_count": status.headphones_track_count,

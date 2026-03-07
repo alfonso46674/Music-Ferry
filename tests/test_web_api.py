@@ -53,7 +53,8 @@ def client(mock_config: Config) -> TestClient:
     from music_ferry.web import create_app
 
     app = create_app(mock_config)
-    return TestClient(app)
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 class TestHealthEndpoint:
@@ -236,6 +237,45 @@ class TestHeadphonesEndpoints:
         assert data["ok"] is True
         assert data["copied"] == 1
         assert (destination / "track1.mp3").exists()
+        assert data["status"]["new_to_transfer"] == 0
+
+    def test_headphones_transfer_reports_already_synced(
+        self,
+        client: TestClient,
+        mock_config: Config,
+    ):
+        spotify_dir = mock_config.paths.music_dir / "spotify"
+        spotify_music = spotify_dir / "music"
+        spotify_music.mkdir(parents=True, exist_ok=True)
+
+        library = Library(spotify_dir / "library.json")
+        library.add_track(
+            "track1",
+            "track1.mp3",
+            "Track One",
+            "Artist One",
+            "playlist1",
+            size_bytes=4,
+        )
+        library.update_playlist("playlist1", "Playlist One", 1, track_order=["track1"])
+        (spotify_music / "track1.mp3").write_bytes(b"data")
+
+        mount = mock_config.paths.headphones_mount
+        destination = mount / mock_config.paths.headphones_music_folder
+        destination.mkdir(parents=True, exist_ok=True)
+        (destination / "track1.mp3").write_bytes(b"data")
+
+        response = client.post(
+            "/api/v1/headphones/transfer",
+            json={"mount_path": str(mount), "source": "spotify"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["ok"] is True
+        assert data["copied"] == 0
+        assert data["removed"] == 0
+        assert "already up to date" in data["message"].lower()
+        assert data["before"]["new_to_transfer"] == 0
         assert data["status"]["new_to_transfer"] == 0
 
 
