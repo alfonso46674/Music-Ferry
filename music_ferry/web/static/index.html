@@ -18,8 +18,31 @@
             <div id="status">
                 <p><strong>Syncing:</strong> <span id="syncing">Loading...</span></p>
                 <p><strong>Last Sync:</strong> <span id="last-sync">Loading...</span></p>
+                <p><strong>Next Scheduled:</strong> <span id="next-scheduled">Loading...</span></p>
             </div>
             <button id="sync-btn" class="btn btn-primary">Trigger Sync</button>
+        </section>
+
+        <section id="schedule-section" class="card">
+            <h2>Schedule</h2>
+            <div class="schedule-controls">
+                <label for="schedule-enabled">
+                    <input id="schedule-enabled" type="checkbox">
+                    Enable automatic sync
+                </label>
+            </div>
+            <div class="schedule-controls">
+                <label for="schedule-time">Time</label>
+                <input id="schedule-time" type="time" value="05:00">
+                <label for="schedule-source">Source</label>
+                <select id="schedule-source" aria-label="Select scheduled sync source">
+                    <option value="youtube">YouTube only</option>
+                    <option value="all">Spotify + YouTube</option>
+                    <option value="spotify">Spotify only</option>
+                </select>
+                <button id="save-schedule-btn" class="btn btn-secondary">Save Schedule</button>
+            </div>
+            <p id="schedule-status" class="status-message">Loading schedule...</p>
         </section>
 
         <section id="library-section" class="card">
@@ -44,6 +67,28 @@
                     <p><strong>Size:</strong> <span id="total-size">-</span></p>
                 </div>
             </div>
+        </section>
+
+        <section id="headphones-section" class="card">
+            <h2>Headphones</h2>
+            <p><strong>Configured Mount:</strong> <span id="configured-mount">-</span></p>
+            <p><strong>Scan Results:</strong> <span id="headphones-count">-</span></p>
+            <div class="headphones-controls">
+                <button id="scan-headphones-btn" class="btn btn-secondary">Scan Headphones</button>
+                <select id="headphones-device-select" aria-label="Select headphones device"></select>
+                <button id="ensure-access-btn" class="btn btn-secondary">Make Accessible</button>
+            </div>
+            <div class="headphones-controls">
+                <select id="transfer-source-select" aria-label="Select transfer source">
+                    <option value="all">Spotify + YouTube</option>
+                    <option value="spotify">Spotify only</option>
+                    <option value="youtube">YouTube only</option>
+                </select>
+                <button id="transfer-headphones-btn" class="btn btn-primary">
+                    Transfer to Selected Headphones
+                </button>
+            </div>
+            <p id="headphones-status" class="status-message">Scan to detect connected headphones.</p>
         </section>
 
         <section id="logs-section" class="card">

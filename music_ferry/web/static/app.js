@@ -7,12 +7,19 @@ const API_BASE = 'api/v1';
 let logsPaused = false;
 let eventSource = null;
 let currentJobId = null;
+let headphonesDevices = [];
 
 // DOM Elements
 const elements = {
     syncing: document.getElementById('syncing'),
     lastSync: document.getElementById('last-sync'),
+    nextScheduled: document.getElementById('next-scheduled'),
     syncBtn: document.getElementById('sync-btn'),
+    scheduleEnabled: document.getElementById('schedule-enabled'),
+    scheduleTime: document.getElementById('schedule-time'),
+    scheduleSource: document.getElementById('schedule-source'),
+    saveScheduleBtn: document.getElementById('save-schedule-btn'),
+    scheduleStatus: document.getElementById('schedule-status'),
     spotifyTracks: document.getElementById('spotify-tracks'),
     spotifyPlaylists: document.getElementById('spotify-playlists'),
     spotifySize: document.getElementById('spotify-size'),
@@ -22,6 +29,14 @@ const elements = {
     totalTracks: document.getElementById('total-tracks'),
     totalPlaylists: document.getElementById('total-playlists'),
     totalSize: document.getElementById('total-size'),
+    configuredMount: document.getElementById('configured-mount'),
+    headphonesCount: document.getElementById('headphones-count'),
+    scanHeadphonesBtn: document.getElementById('scan-headphones-btn'),
+    headphonesDeviceSelect: document.getElementById('headphones-device-select'),
+    ensureAccessBtn: document.getElementById('ensure-access-btn'),
+    transferSourceSelect: document.getElementById('transfer-source-select'),
+    transferHeadphonesBtn: document.getElementById('transfer-headphones-btn'),
+    headphonesStatus: document.getElementById('headphones-status'),
     logs: document.getElementById('logs'),
     toggleLogs: document.getElementById('toggle-logs'),
     clearLogs: document.getElementById('clear-logs'),
@@ -43,6 +58,108 @@ function formatDate(isoString) {
     return date.toLocaleString();
 }
 
+function setHeadphonesMessage(message, type = '') {
+    elements.headphonesStatus.textContent = message;
+    elements.headphonesStatus.classList.remove('status-success', 'status-error');
+    if (type === 'success') {
+        elements.headphonesStatus.classList.add('status-success');
+    }
+    if (type === 'error') {
+        elements.headphonesStatus.classList.add('status-error');
+    }
+}
+
+function setScheduleMessage(message, type = '') {
+    elements.scheduleStatus.textContent = message;
+    elements.scheduleStatus.classList.remove('status-success', 'status-error');
+    if (type === 'success') {
+        elements.scheduleStatus.classList.add('status-success');
+    }
+    if (type === 'error') {
+        elements.scheduleStatus.classList.add('status-error');
+    }
+}
+
+function getSelectedDevice() {
+    const selectedPath = elements.headphonesDeviceSelect.value;
+    return headphonesDevices.find((device) => device.mount_path === selectedPath);
+}
+
+function updateHeadphonesSelectionMessage() {
+    const selected = getSelectedDevice();
+    if (!selected) {
+        setHeadphonesMessage('No device selected.', 'error');
+        return;
+    }
+    const state = selected.connected ? 'Connected' : 'Not connected';
+    const access = selected.accessible ? 'accessible' : 'not accessible';
+    setHeadphonesMessage(`${state}, ${access}. ${selected.reason}`);
+}
+
+function updateHeadphonesDropdown(configuredMount) {
+    const previousSelection = elements.headphonesDeviceSelect.value;
+    elements.headphonesDeviceSelect.innerHTML = '';
+
+    if (headphonesDevices.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No candidates found';
+        elements.headphonesDeviceSelect.appendChild(option);
+        elements.headphonesDeviceSelect.disabled = true;
+        return;
+    }
+
+    headphonesDevices.forEach((device) => {
+        const option = document.createElement('option');
+        option.value = device.mount_path;
+        const prefix = device.accessible
+            ? 'Ready'
+            : device.connected
+                ? 'Needs setup'
+                : 'Offline';
+        option.textContent = `${prefix}: ${device.mount_path}`;
+        elements.headphonesDeviceSelect.appendChild(option);
+    });
+
+    const hasPrevious = headphonesDevices.some((device) => device.mount_path === previousSelection);
+    const hasConfigured = headphonesDevices.some((device) => device.mount_path === configuredMount);
+    const preferred = headphonesDevices.find((device) => device.connected && device.accessible);
+
+    if (hasPrevious) {
+        elements.headphonesDeviceSelect.value = previousSelection;
+    } else if (hasConfigured) {
+        elements.headphonesDeviceSelect.value = configuredMount;
+    } else if (preferred) {
+        elements.headphonesDeviceSelect.value = preferred.mount_path;
+    } else {
+        elements.headphonesDeviceSelect.value = headphonesDevices[0].mount_path;
+    }
+
+    elements.headphonesDeviceSelect.disabled = false;
+}
+
+function formatScanCandidatesForLog(devices) {
+    if (!Array.isArray(devices) || devices.length === 0) {
+        return 'none';
+    }
+
+    const maxShown = 6;
+    const shown = devices.slice(0, maxShown).map((device) => {
+        const state = device.accessible
+            ? 'ready'
+            : device.connected
+                ? 'needs-setup'
+                : 'offline';
+        return `${device.mount_path} (${state})`;
+    });
+
+    if (devices.length > maxShown) {
+        shown.push(`+${devices.length - maxShown} more`);
+    }
+
+    return shown.join(', ');
+}
+
 // API Functions
 async function fetchStatus() {
     try {
@@ -61,9 +178,77 @@ async function fetchStatus() {
         }
 
         elements.lastSync.textContent = formatDate(data.last_sync);
+        elements.nextScheduled.textContent = formatDate(data.next_scheduled);
     } catch (error) {
         console.error('Failed to fetch status:', error);
         elements.syncing.textContent = 'Error';
+        elements.nextScheduled.textContent = 'Error';
+    }
+}
+
+async function fetchSchedule() {
+    try {
+        const response = await fetch(`${API_BASE}/schedule`);
+        const data = await response.json();
+
+        if (data.error) {
+            setScheduleMessage(data.error, 'error');
+            return;
+        }
+
+        elements.scheduleEnabled.checked = Boolean(data.enabled);
+        elements.scheduleTime.value = data.time || '05:00';
+        elements.scheduleSource.value = data.source || 'youtube';
+
+        if (data.enabled) {
+            setScheduleMessage(
+                `Automatic sync is enabled. Next run: ${formatDate(data.next_run)}.`,
+                'success',
+            );
+        } else {
+            setScheduleMessage('Automatic sync is disabled.');
+        }
+    } catch (error) {
+        console.error('Failed to fetch schedule:', error);
+        setScheduleMessage('Failed to load schedule settings.', 'error');
+    }
+}
+
+async function saveSchedule() {
+    elements.saveScheduleBtn.disabled = true;
+    try {
+        const response = await fetch(`${API_BASE}/schedule`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                enabled: elements.scheduleEnabled.checked,
+                time: elements.scheduleTime.value,
+                source: elements.scheduleSource.value,
+            }),
+        });
+        const data = await response.json();
+
+        if (data.error) {
+            setScheduleMessage(data.error, 'error');
+            appendLog(`[ERROR] Schedule update failed: ${data.error}`);
+            return;
+        }
+
+        setScheduleMessage(
+            data.enabled
+                ? `Schedule saved. Next run: ${formatDate(data.next_run)}.`
+                : 'Schedule disabled.',
+            'success',
+        );
+        appendLog(
+            `[INFO] Schedule updated: enabled=${data.enabled} time=${data.time} source=${data.source}`,
+        );
+        await fetchStatus();
+    } catch (error) {
+        console.error('Failed to save schedule:', error);
+        setScheduleMessage('Failed to save schedule.', 'error');
+    } finally {
+        elements.saveScheduleBtn.disabled = false;
     }
 }
 
@@ -88,6 +273,100 @@ async function fetchLibrary() {
         elements.totalSize.textContent = formatBytes(data.total.size_bytes);
     } catch (error) {
         console.error('Failed to fetch library:', error);
+    }
+}
+
+async function scanHeadphones(showStatus = false) {
+    try {
+        const response = await fetch(`${API_BASE}/headphones/scan`);
+        const data = await response.json();
+
+        headphonesDevices = data.devices || [];
+        elements.configuredMount.textContent = data.configured_mount || '-';
+        elements.headphonesCount.textContent = `${headphonesDevices.length} candidate(s)`;
+
+        updateHeadphonesDropdown(data.configured_mount);
+        updateHeadphonesSelectionMessage();
+
+        if (showStatus) {
+            const candidateSummary = formatScanCandidatesForLog(headphonesDevices);
+            appendLog(
+                `[INFO] Headphones scan complete (${headphonesDevices.length} candidates): ${candidateSummary}`,
+            );
+        }
+    } catch (error) {
+        console.error('Failed to scan headphones:', error);
+        setHeadphonesMessage('Failed to scan headphones.', 'error');
+    }
+}
+
+async function ensureHeadphonesAccess() {
+    const mountPath = elements.headphonesDeviceSelect.value;
+    if (!mountPath) {
+        setHeadphonesMessage('Select a headphones mount path first.', 'error');
+        return;
+    }
+
+    elements.ensureAccessBtn.disabled = true;
+    try {
+        const response = await fetch(`${API_BASE}/headphones/access`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mount_path: mountPath }),
+        });
+        const data = await response.json();
+
+        if (!data.ok) {
+            setHeadphonesMessage(data.message || 'Unable to make device accessible.', 'error');
+            appendLog(`[ERROR] Headphones access failed: ${data.message || 'unknown error'}`);
+            return;
+        }
+
+        setHeadphonesMessage(data.message, 'success');
+        appendLog(`[INFO] ${data.message}`);
+        await scanHeadphones(false);
+    } catch (error) {
+        console.error('Failed to ensure headphone access:', error);
+        setHeadphonesMessage('Failed to check headphones access.', 'error');
+    } finally {
+        elements.ensureAccessBtn.disabled = false;
+    }
+}
+
+async function transferToHeadphones() {
+    const mountPath = elements.headphonesDeviceSelect.value;
+    if (!mountPath) {
+        setHeadphonesMessage('Select a headphones mount path first.', 'error');
+        return;
+    }
+
+    elements.transferHeadphonesBtn.disabled = true;
+    try {
+        const response = await fetch(`${API_BASE}/headphones/transfer`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mount_path: mountPath,
+                source: elements.transferSourceSelect.value,
+            }),
+        });
+        const data = await response.json();
+
+        if (!data.ok) {
+            setHeadphonesMessage(data.message || 'Transfer failed.', 'error');
+            appendLog(`[ERROR] Transfer failed: ${data.message || 'unknown error'}`);
+            return;
+        }
+
+        setHeadphonesMessage(data.message, 'success');
+        appendLog(`[INFO] ${data.message}`);
+        fetchLibrary();
+        await scanHeadphones(false);
+    } catch (error) {
+        console.error('Failed to transfer to headphones:', error);
+        setHeadphonesMessage('Transfer request failed.', 'error');
+    } finally {
+        elements.transferHeadphonesBtn.disabled = false;
     }
 }
 
@@ -194,6 +473,11 @@ function clearLogs() {
 
 // Event Listeners
 elements.syncBtn.addEventListener('click', triggerSync);
+elements.scanHeadphonesBtn.addEventListener('click', () => scanHeadphones(true));
+elements.ensureAccessBtn.addEventListener('click', ensureHeadphonesAccess);
+elements.transferHeadphonesBtn.addEventListener('click', transferToHeadphones);
+elements.headphonesDeviceSelect.addEventListener('change', updateHeadphonesSelectionMessage);
+elements.saveScheduleBtn.addEventListener('click', saveSchedule);
 elements.toggleLogs.addEventListener('click', toggleLogs);
 elements.clearLogs.addEventListener('click', clearLogs);
 
@@ -202,7 +486,9 @@ async function init() {
     // Fetch initial data
     await Promise.all([
         fetchStatus(),
+        fetchSchedule(),
         fetchLibrary(),
+        scanHeadphones(false),
     ]);
 
     // Connect log stream
@@ -210,7 +496,9 @@ async function init() {
 
     // Refresh status periodically
     setInterval(fetchStatus, 10000);
+    setInterval(fetchSchedule, 30000);
     setInterval(fetchLibrary, 30000);
+    setInterval(() => scanHeadphones(false), 30000);
 
     // Set version (from OpenAPI spec)
     try {

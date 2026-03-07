@@ -33,8 +33,13 @@ def _get_static_path() -> Path | None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler for startup/shutdown events."""
+    from music_ferry.web.services.sync_service import get_sync_service
+
     logger.info("Music Ferry web UI starting up")
+    sync_service = get_sync_service(app)
+    await sync_service.start_scheduler()
     yield
+    await sync_service.stop_scheduler()
     logger.info("Music Ferry web UI shutting down")
 
 
