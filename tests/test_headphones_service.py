@@ -94,3 +94,16 @@ def test_transfer_includes_before_after_status(tmp_path: Path):
     assert result["removed"] == 0
     assert result["before"]["new_to_transfer"] == 1
     assert result["status"]["new_to_transfer"] == 0
+
+
+def test_describe_mount_autofs_only_is_reported_offline(tmp_path: Path):
+    config = _make_config(tmp_path)
+    service = HeadphonesService(config)
+
+    mount = config.paths.headphones_mount
+    device = service._describe_mount(mount, [("systemd-1", "autofs")])
+
+    assert device["connected"] is False
+    assert device["accessible"] is False
+    assert device["music_folder_exists"] is False
+    assert device["reason"] == "Automount waiting for device"

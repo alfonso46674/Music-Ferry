@@ -26,8 +26,12 @@ class HeadphonesService:
     def scan_devices(self) -> dict[str, Any]:
         """Scan likely mount points and report accessibility details."""
         configured_mount = self.config.paths.headphones_mount
-        candidates = self._iter_candidate_mounts()
-        devices = [self._describe_mount(mount) for mount in sorted(candidates)]
+        mount_table = self._read_mount_table()
+        candidates = self._iter_candidate_mounts(mount_table)
+        devices = [
+            self._describe_mount(mount, mount_table.get(mount, []))
+            for mount in sorted(candidates)
+        ]
 
         devices.sort(
             key=lambda device: (
@@ -164,27 +168,66 @@ class HeadphonesService:
             "device": device,
         }
 
-    def _iter_candidate_mounts(self) -> set[Path]:
-        """Collect candidate mount paths from config and /proc/mounts."""
-        candidates: set[Path] = {self.config.paths.headphones_mount}
-
+    def _read_mount_table(self) -> dict[Path, list[tuple[str, str]]]:
+        """Read /proc/mounts and map mount paths to (source, fstype) entries."""
+        table: dict[Path, list[tuple[str, str]]] = {}
         mounts_file = Path("/proc/mounts")
-        if mounts_file.exists():
-            try:
-                for line in mounts_file.read_text(encoding="utf-8").splitlines():
-                    parts = line.split()
-                    if len(parts) < 2:
-                        continue
-                    mount = Path(parts[1].replace("\\040", " "))
-                    if self._is_scannable_mount(mount):
-                        candidates.add(mount)
-            except OSError:
-                logger.debug("Unable to read /proc/mounts", exc_info=True)
+        if not mounts_file.exists():
+            return table
 
+        try:
+            for line in mounts_file.read_text(encoding="utf-8").splitlines():
+                parts = line.split()
+                if len(parts) < 3:
+                    continue
+                source = parts[0]
+                mount = Path(parts[1].replace("\\040", " "))
+                fstype = parts[2]
+                if not mount.is_absolute():
+                    continue
+                table.setdefault(mount, []).append((source, fstype))
+        except OSError:
+            logger.debug("Unable to read /proc/mounts", exc_info=True)
+
+        return table
+
+    def _iter_candidate_mounts(
+        self,
+        mount_table: dict[Path, list[tuple[str, str]]],
+    ) -> set[Path]:
+        """Collect candidate mount paths from config and mount table."""
+        candidates: set[Path] = {self.config.paths.headphones_mount}
+        for mount in mount_table:
+            if self._is_scannable_mount(mount):
+                candidates.add(mount)
         return {path for path in candidates if path.is_absolute()}
 
-    def _describe_mount(self, mount: Path) -> dict[str, Any]:
+    def _describe_mount(
+        self,
+        mount: Path,
+        mount_entries: list[tuple[str, str]] | None = None,
+    ) -> dict[str, Any]:
         """Describe mount accessibility and readiness for transfer."""
+        entries = mount_entries or []
+        has_real_mount = any(fstype != "autofs" for _, fstype in entries)
+        has_autofs_only = bool(entries) and not has_real_mount
+
+        if has_autofs_only:
+            # Avoid touching autofs-only paths during background scans: stat/access
+            # can trigger mount attempts even when the backing device is absent.
+            music_path = mount / self.music_folder_name
+            return {
+                "name": mount.name or str(mount),
+                "mount_path": str(mount),
+                "music_path": str(music_path),
+                "connected": False,
+                "accessible": False,
+                "music_folder_exists": False,
+                "can_prepare": False,
+                "is_configured": mount == self.config.paths.headphones_mount,
+                "reason": "Automount waiting for device",
+            }
+
         mount_exists = mount.exists() and mount.is_dir()
         mount_readable = mount_exists and os.access(mount, os.R_OK | os.X_OK)
         mount_writable = mount_exists and os.access(mount, os.W_OK | os.X_OK)

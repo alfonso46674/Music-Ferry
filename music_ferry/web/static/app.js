@@ -498,7 +498,7 @@ async function init() {
     setInterval(fetchStatus, 10000);
     setInterval(fetchSchedule, 30000);
     setInterval(fetchLibrary, 30000);
-    setInterval(() => scanHeadphones(false), 30000);
+    // Keep scans manual (button/actions) to avoid unintended autofs mount churn.
 
     // Set version (from OpenAPI spec)
     try {
