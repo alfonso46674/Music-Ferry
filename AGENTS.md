@@ -9,6 +9,7 @@ Guidance for AI agents working in this repository.
 - **Lint/type**: `make lint` (ruff) and `make typecheck` (mypy --strict)
 - **Deployment**: Docker Compose (`docker compose --env-file .env.docker up -d --build`)
 - See [`CLAUDE.md`](CLAUDE.md) for architecture and key paths
+- For safe-unplug helper hardening and Docker/UFW gateway notes, see [`docs/web-ui.md`](docs/web-ui.md)
 
 ## Before Touching Code
 

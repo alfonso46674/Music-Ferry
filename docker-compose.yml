@@ -36,6 +36,10 @@ services:
           propagation: rslave
     environment:
       - TZ=${TZ:-UTC}
+      - MUSIC_FERRY_UNPLUG_HELPER_URL=${MUSIC_FERRY_UNPLUG_HELPER_URL:-}
+      - MUSIC_FERRY_UNPLUG_HELPER_TOKEN=${MUSIC_FERRY_UNPLUG_HELPER_TOKEN:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test:
         [

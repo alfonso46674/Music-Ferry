@@ -29,6 +29,12 @@ class HeadphonesTransferRequest(BaseModel):
     source: str = Field(default="all", pattern="^(all|spotify|youtube)$")
 
 
+class HeadphonesMountRequest(BaseModel):
+    """Request payload for mount-target operations."""
+
+    mount_path: str | None = None
+
+
 class ScheduleUpdateRequest(BaseModel):
     """Request payload for updating automatic sync schedule."""
 
@@ -189,3 +195,53 @@ async def transfer_to_headphones(
     except Exception as exc:  # pragma: no cover - defensive fallback
         logger.exception("Headphone transfer failed: %s", exc)
         return {"ok": False, "message": f"Headphone transfer failed: {exc}"}
+
+
+@router.post("/headphones/delete-mp3")
+async def delete_headphones_mp3(
+    payload: HeadphonesMountRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """Delete MP3 files from selected headphones mount path."""
+    service = HeadphonesService(request.app.state.config)
+    try:
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            service.delete_mp3_files,
+            payload.mount_path,
+        )
+    except ValueError as exc:
+        return {"ok": False, "message": str(exc)}
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.exception("Headphone delete failed: %s", exc)
+        return {"ok": False, "message": f"Headphone delete failed: {exc}"}
+
+
+@router.post("/headphones/prepare-unplug")
+async def prepare_headphones_unplug(
+    payload: HeadphonesMountRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """Sync and attempt unmount to safely unplug selected headphones."""
+    service = HeadphonesService(request.app.state.config)
+    logger.info("API prepare-unplug requested for mount_path=%s", payload.mount_path)
+    try:
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            None,
+            service.prepare_unplug,
+            payload.mount_path,
+        )
+        logger.info(
+            "API prepare-unplug result mount_path=%s ok=%s unmounted=%s",
+            payload.mount_path,
+            result.get("ok"),
+            result.get("unmounted"),
+        )
+        return result
+    except ValueError as exc:
+        return {"ok": False, "message": str(exc)}
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.exception("Headphone prepare-unplug failed: %s", exc)
+        return {"ok": False, "message": f"Headphone prepare-unplug failed: {exc}"}

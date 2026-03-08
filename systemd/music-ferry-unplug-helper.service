@@ -1,0 +1,19 @@
+[Unit]
+Description=Music Ferry Host Unplug Helper (privileged)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+Environment=HELPER_BIND=127.0.0.1
+Environment=HELPER_PORT=17888
+Environment=HELPER_CONFIG_PATH=/home/alfonso/.music-ferry/config.yaml
+EnvironmentFile=-/etc/default/music-ferry-unplug-helper
+ExecStart=/usr/bin/python3 /home/alfonso/WebProjects/SpotifyDownloader/scripts/headphones-unplug-helper.py
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

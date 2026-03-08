@@ -36,6 +36,8 @@ const elements = {
     ensureAccessBtn: document.getElementById('ensure-access-btn'),
     transferSourceSelect: document.getElementById('transfer-source-select'),
     transferHeadphonesBtn: document.getElementById('transfer-headphones-btn'),
+    deleteMp3Btn: document.getElementById('delete-mp3-btn'),
+    prepareUnplugBtn: document.getElementById('prepare-unplug-btn'),
     headphonesStatus: document.getElementById('headphones-status'),
     logs: document.getElementById('logs'),
     toggleLogs: document.getElementById('toggle-logs'),
@@ -324,7 +326,6 @@ async function ensureHeadphonesAccess() {
 
         setHeadphonesMessage(data.message, 'success');
         appendLog(`[INFO] ${data.message}`);
-        await scanHeadphones(false);
     } catch (error) {
         console.error('Failed to ensure headphone access:', error);
         setHeadphonesMessage('Failed to check headphones access.', 'error');
@@ -361,12 +362,81 @@ async function transferToHeadphones() {
         setHeadphonesMessage(data.message, 'success');
         appendLog(`[INFO] ${data.message}`);
         fetchLibrary();
-        await scanHeadphones(false);
     } catch (error) {
         console.error('Failed to transfer to headphones:', error);
         setHeadphonesMessage('Transfer request failed.', 'error');
     } finally {
         elements.transferHeadphonesBtn.disabled = false;
+    }
+}
+
+async function deleteHeadphonesMp3() {
+    const mountPath = elements.headphonesDeviceSelect.value;
+    if (!mountPath) {
+        setHeadphonesMessage('Select a headphones mount path first.', 'error');
+        return;
+    }
+
+    if (!window.confirm(`Delete all .mp3 files under ${mountPath}?`)) {
+        return;
+    }
+
+    elements.deleteMp3Btn.disabled = true;
+    try {
+        const response = await fetch(`${API_BASE}/headphones/delete-mp3`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mount_path: mountPath }),
+        });
+        const data = await response.json();
+
+        if (!data.ok) {
+            setHeadphonesMessage(data.message || 'Delete failed.', 'error');
+            appendLog(`[ERROR] Delete failed: ${data.message || 'unknown error'}`);
+            return;
+        }
+
+        setHeadphonesMessage(data.message, 'success');
+        appendLog(`[INFO] ${data.message}`);
+    } catch (error) {
+        console.error('Failed to delete MP3 files on headphones:', error);
+        setHeadphonesMessage('Delete request failed.', 'error');
+    } finally {
+        elements.deleteMp3Btn.disabled = false;
+    }
+}
+
+async function prepareHeadphonesUnplug() {
+    const mountPath = elements.headphonesDeviceSelect.value;
+    if (!mountPath) {
+        setHeadphonesMessage('Select a headphones mount path first.', 'error');
+        return;
+    }
+
+    elements.prepareUnplugBtn.disabled = true;
+    setHeadphonesMessage(`Preparing safe unplug for ${mountPath}...`);
+    appendLog(`[INFO] Prepare safe unplug requested for ${mountPath}`);
+    try {
+        const response = await fetch(`${API_BASE}/headphones/prepare-unplug`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mount_path: mountPath }),
+        });
+        const data = await response.json();
+
+        if (!data.ok) {
+            setHeadphonesMessage(data.message || 'Prepare-unplug failed.', 'error');
+            appendLog(`[ERROR] Prepare-unplug failed: ${data.message || 'unknown error'}`);
+            return;
+        }
+
+        setHeadphonesMessage(data.message, 'success');
+        appendLog(`[INFO] ${data.message}`);
+    } catch (error) {
+        console.error('Failed to prepare headphones unplug:', error);
+        setHeadphonesMessage('Prepare-unplug request failed.', 'error');
+    } finally {
+        elements.prepareUnplugBtn.disabled = false;
     }
 }
 
@@ -476,6 +546,8 @@ elements.syncBtn.addEventListener('click', triggerSync);
 elements.scanHeadphonesBtn.addEventListener('click', () => scanHeadphones(true));
 elements.ensureAccessBtn.addEventListener('click', ensureHeadphonesAccess);
 elements.transferHeadphonesBtn.addEventListener('click', transferToHeadphones);
+elements.deleteMp3Btn.addEventListener('click', deleteHeadphonesMp3);
+elements.prepareUnplugBtn.addEventListener('click', prepareHeadphonesUnplug);
 elements.headphonesDeviceSelect.addEventListener('change', updateHeadphonesSelectionMessage);
 elements.saveScheduleBtn.addEventListener('click', saveSchedule);
 elements.toggleLogs.addEventListener('click', toggleLogs);
@@ -488,7 +560,6 @@ async function init() {
         fetchStatus(),
         fetchSchedule(),
         fetchLibrary(),
-        scanHeadphones(false),
     ]);
 
     // Connect log stream

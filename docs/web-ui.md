@@ -60,6 +60,8 @@ All data is available via a REST API at `/api/v1/`:
 | `/api/v1/headphones/scan` | GET | Scan connected/configured headphone mount points |
 | `/api/v1/headphones/access` | POST | Ensure selected mount has accessible music folder |
 | `/api/v1/headphones/transfer` | POST | Transfer selected source(s) to selected mount |
+| `/api/v1/headphones/delete-mp3` | POST | Delete `.mp3` files from selected mount's music folder |
+| `/api/v1/headphones/prepare-unplug` | POST | Sync and safely unmount selected mount |
 | `/api/v1/logs/stream` | GET | SSE stream of log lines |
 
 ### Prometheus Metrics
@@ -116,6 +118,67 @@ docker compose --env-file .env.docker ps
 
 # Stop
 docker compose --env-file .env.docker down
+```
+
+### Host Safe-Unplug Helper (Optional, Recommended)
+
+In Docker, unmount can require host privileges. If `Prepare Safe Unplug` reports a
+permission error, run the host helper as a root systemd service and point the web
+container to it.
+The helper is restricted to a single mount path (from `paths.headphones_mount`
+in your `config.yaml`, or `HELPER_ALLOWED_MOUNT` if explicitly set).
+
+1. Install and start helper service:
+
+```bash
+sudo cp systemd/music-ferry-unplug-helper.service /etc/systemd/system/
+sudo tee /etc/default/music-ferry-unplug-helper >/dev/null <<'EOF'
+HELPER_BIND=0.0.0.0
+HELPER_PORT=17888
+# Set a random token and reuse it in .env.docker
+HELPER_TOKEN=replace-with-random-token
+# Optional override (otherwise helper reads paths.headphones_mount from config):
+# HELPER_ALLOWED_MOUNT=/media/alfonso/681B-7309
+HELPER_CONFIG_PATH=/home/alfonso/.music-ferry/config.yaml
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now music-ferry-unplug-helper.service
+sudo systemctl status music-ferry-unplug-helper.service --no-pager
+```
+
+2. Configure web container env (`.env.docker`):
+
+```bash
+# Use the web container's network gateway IP for helper routing.
+# Example shown for spotifydownloader_default network.
+MUSIC_FERRY_UNPLUG_HELPER_URL=http://172.19.0.1:17888
+MUSIC_FERRY_UNPLUG_HELPER_TOKEN=replace-with-random-token
+```
+
+3. Discover gateway + apply firewall rule (if UFW is enabled):
+
+```bash
+# Gateway used by web container network:
+docker inspect -f '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}' music-ferry-web
+
+# Tight UFW rule for helper port, Docker bridge only:
+sudo ufw allow in on br-<network-id-prefix> proto tcp \
+  from <bridge-subnet> to <bridge-gateway-ip> port 17888 \
+  comment 'music-ferry helper (docker only)'
+```
+
+Example from this setup:
+
+```bash
+sudo ufw allow in on br-f3b096331aab proto tcp \
+  from 172.19.0.0/16 to 172.19.0.1 port 17888 \
+  comment 'music-ferry helper (docker only)'
+```
+
+4. Rebuild web container:
+
+```bash
+docker compose --env-file .env.docker up -d --build
 ```
 
 ### Reverse Proxy (Caddy)

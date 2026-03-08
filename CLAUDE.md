@@ -52,6 +52,13 @@ music_ferry/
 
 See [`docs/plans/2026-03-07-code-audit.md`](docs/plans/2026-03-07-code-audit.md) for a full bug audit conducted on 2026-03-07, covering critical bugs, medium issues, and code quality items.
 
+## Headphones Safe Unplug
+
+- Dockerized unmount uses host helper fallback (`/api/v1/headphones/prepare-unplug`)
+- Helper is restricted to configured `paths.headphones_mount`
+- See [`docs/web-ui.md`](docs/web-ui.md) and external runbook:
+  `/home/alfonso/docs/projects/music-ferry/safe-unplug-hardening.md`
+
 ## Data Paths
 
 ```

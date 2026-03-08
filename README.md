@@ -334,6 +334,7 @@ After mounting, open the web UI and use:
 1. `Scan Headphones`
 2. `Make Accessible` (if needed)
 3. `Transfer to Selected Headphones`
+4. `Prepare Safe Unplug` before unplugging
 
 You can still trigger sync manually from the UI with `Trigger Sync`.
 
@@ -344,6 +345,62 @@ Unmount/lock when done:
 # or with lock
 ./scripts/headphones-unmount.sh --device /dev/mapper/<name> --lock-device /dev/sdb2
 ```
+
+**Optional: enable host privileged helper for UI safe-unplug (recommended):**
+
+```bash
+sudo cp systemd/music-ferry-unplug-helper.service /etc/systemd/system/
+sudo tee /etc/default/music-ferry-unplug-helper >/dev/null <<'EOF'
+HELPER_BIND=0.0.0.0
+HELPER_PORT=17888
+HELPER_TOKEN=replace-with-random-token
+HELPER_CONFIG_PATH=/home/alfonso/.music-ferry/config.yaml
+# Optional explicit override:
+# HELPER_ALLOWED_MOUNT=/media/alfonso/681B-7309
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now music-ferry-unplug-helper.service
+```
+
+Then set in `.env.docker`:
+
+```bash
+# Use the web container's bridge gateway IP as helper host.
+# Example shown for spotifydownloader_default network.
+MUSIC_FERRY_UNPLUG_HELPER_URL=http://172.19.0.1:17888
+MUSIC_FERRY_UNPLUG_HELPER_TOKEN=replace-with-random-token
+```
+
+Get the correct gateway value for your current container network:
+
+```bash
+docker inspect -f '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}' music-ferry-web
+```
+
+If UFW is enabled, allow helper traffic only from this Docker bridge network:
+
+```bash
+sudo ufw allow in on br-<network-id-prefix> proto tcp \
+  from <bridge-subnet> to <bridge-gateway-ip> port 17888 \
+  comment 'music-ferry helper (docker only)'
+```
+
+Example from this setup:
+
+```bash
+sudo ufw allow in on br-f3b096331aab proto tcp \
+  from 172.19.0.0/16 to 172.19.0.1 port 17888 \
+  comment 'music-ferry helper (docker only)'
+```
+
+Apply changes:
+
+```bash
+docker compose --env-file .env.docker up -d --build
+```
+
+Security note: helper unmount is restricted to one path only (from
+`paths.headphones_mount` in `config.yaml`, or `HELPER_ALLOWED_MOUNT`).
 
 ## Project Structure
 

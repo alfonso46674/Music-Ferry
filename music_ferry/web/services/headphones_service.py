@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import copy
+import json
 import logging
 import os
+import subprocess
 from pathlib import Path
 from typing import Any
+from urllib import error as urlerror
+from urllib import request as urlrequest
 
 from music_ferry.config import Config
 from music_ferry.transfer import InteractiveTransfer
@@ -168,6 +172,225 @@ class HeadphonesService:
             "device": device,
         }
 
+    def delete_mp3_files(self, mount_path: str | None) -> dict[str, Any]:
+        """Delete MP3 files from selected headphones music path safely."""
+        mount = self._normalize_mount_path(mount_path)
+        self._validate_mount_path(mount)
+
+        if not self._is_real_mounted(mount):
+            return {
+                "ok": False,
+                "message": f"Headphones are not mounted at {mount}.",
+                "deleted": 0,
+                "bytes_freed": 0,
+            }
+
+        music_path = mount / self.music_folder_name
+        if not music_path.exists() or not music_path.is_dir():
+            return {
+                "ok": False,
+                "message": f"Music path not found: {music_path}",
+                "deleted": 0,
+                "bytes_freed": 0,
+            }
+
+        deleted = 0
+        bytes_freed = 0
+        for file_path in music_path.glob("*.mp3"):
+            try:
+                if file_path.is_file():
+                    size = file_path.stat().st_size
+                    file_path.unlink()
+                    deleted += 1
+                    bytes_freed += size
+            except OSError as exc:
+                logger.warning("Failed deleting %s: %s", file_path, exc)
+
+        os.sync()
+        return {
+            "ok": True,
+            "message": f"Deleted {deleted} MP3 file(s) from {music_path}.",
+            "deleted": deleted,
+            "bytes_freed": bytes_freed,
+        }
+
+    def prepare_unplug(self, mount_path: str | None) -> dict[str, Any]:
+        """Flush writes and attempt unmount so device can be safely unplugged."""
+        mount = self._normalize_mount_path(mount_path)
+        self._validate_prepare_unplug_target(mount)
+        self._validate_mount_path(mount)
+
+        logger.info("Prepare-unplug requested for %s", mount)
+        os.sync()
+        logger.info("Filesystem sync completed for %s", mount)
+
+        if not self._is_real_mounted(mount):
+            logger.info("No active real mount found at %s; safe to unplug", mount)
+            return {
+                "ok": True,
+                "synced": True,
+                "unmounted": True,
+                "message": (
+                    f"No active filesystem mount detected at {mount}. "
+                    "Safe to unplug."
+                ),
+            }
+
+        result = subprocess.run(
+            ["umount", str(mount)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode == 0 and not self._is_real_mounted(mount):
+            logger.info("Unmounted %s directly from container process", mount)
+            return {
+                "ok": True,
+                "synced": True,
+                "unmounted": True,
+                "message": f"Unmounted {mount}. Safe to unplug.",
+            }
+
+        stderr = (result.stderr or "").strip()
+        logger.warning(
+            "Direct unmount failed for %s (rc=%s): %s",
+            mount,
+            result.returncode,
+            stderr or "unknown error",
+        )
+
+        helper_result = self._try_helper_prepare_unplug(mount)
+        if helper_result is not None:
+            return helper_result
+
+        if "permission denied" in stderr.lower() or "not permitted" in stderr.lower():
+            hint = (
+                "Unmount requires host permissions in this Docker setup. "
+                "Use the desktop eject action on this device."
+            )
+        else:
+            hint = (
+                "Device is synced but still mounted. "
+                "Please unmount/eject from the host before unplugging."
+            )
+
+        return {
+            "ok": False,
+            "synced": True,
+            "unmounted": False,
+            "message": (
+                f"Could not unmount {mount}: {stderr or 'unknown error'}. {hint}"
+            ),
+        }
+
+    def _validate_prepare_unplug_target(self, mount: Path) -> None:
+        """Allow prepare-unplug only for the configured headphones mount."""
+        configured = self.config.paths.headphones_mount
+        if mount != configured:
+            raise ValueError(
+                "Prepare safe unplug is restricted to configured headphones mount: "
+                f"{configured}"
+            )
+
+    def _try_helper_prepare_unplug(self, mount: Path) -> dict[str, Any] | None:
+        """Try host-side helper service for privileged unmount (optional)."""
+        helper_url = os.getenv("MUSIC_FERRY_UNPLUG_HELPER_URL", "").strip()
+        if not helper_url:
+            return None
+
+        endpoint = f"{helper_url.rstrip('/')}/prepare-unplug"
+        token = os.getenv("MUSIC_FERRY_UNPLUG_HELPER_TOKEN", "").strip()
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["X-Music-Ferry-Token"] = token
+
+        payload = json.dumps({"mount_path": str(mount)}).encode("utf-8")
+        request = urlrequest.Request(
+            endpoint,
+            data=payload,
+            headers=headers,
+            method="POST",
+        )
+
+        logger.info("Attempting host helper prepare-unplug via %s", endpoint)
+
+        try:
+            with urlrequest.urlopen(request, timeout=15) as response:
+                raw = response.read().decode("utf-8")
+        except urlerror.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            logger.warning(
+                "Host helper HTTP error for %s: status=%s body=%s",
+                mount,
+                exc.code,
+                body,
+            )
+            return {
+                "ok": False,
+                "synced": True,
+                "unmounted": False,
+                "message": (
+                    f"Host helper rejected prepare-unplug for {mount} "
+                    f"(HTTP {exc.code})."
+                ),
+            }
+        except OSError as exc:
+            logger.warning("Host helper call failed for %s: %s", mount, exc)
+            return {
+                "ok": False,
+                "synced": True,
+                "unmounted": False,
+                "message": (
+                    f"Could not reach host helper for {mount}: {exc}. "
+                    "Use desktop eject action."
+                ),
+            }
+
+        try:
+            data = json.loads(raw) if raw.strip() else {}
+        except json.JSONDecodeError:
+            logger.warning("Host helper returned non-JSON response: %r", raw)
+            return {
+                "ok": False,
+                "synced": True,
+                "unmounted": False,
+                "message": (
+                    "Host helper returned an invalid response. "
+                    "Use desktop eject action."
+                ),
+            }
+
+        helper_ok = bool(data.get("ok"))
+        helper_message = str(data.get("message") or "").strip()
+        if helper_ok and not self._is_real_mounted(mount):
+            logger.info("Host helper unmounted %s successfully", mount)
+            return {
+                "ok": True,
+                "synced": True,
+                "unmounted": True,
+                "message": helper_message or f"Unmounted {mount}. Safe to unplug.",
+            }
+
+        logger.warning(
+            "Host helper did not complete unmount for %s: ok=%s message=%s",
+            mount,
+            helper_ok,
+            helper_message or "none",
+        )
+        return {
+            "ok": False,
+            "synced": True,
+            "unmounted": False,
+            "message": (
+                helper_message
+                or (
+                    f"Host helper could not unmount {mount}. "
+                    "Use desktop eject action."
+                )
+            ),
+        }
+
     def _read_mount_table(self) -> dict[Path, list[tuple[str, str]]]:
         """Read /proc/mounts and map mount paths to (source, fstype) entries."""
         table: dict[Path, list[tuple[str, str]]] = {}
@@ -190,6 +413,11 @@ class HeadphonesService:
             logger.debug("Unable to read /proc/mounts", exc_info=True)
 
         return table
+
+    def _is_real_mounted(self, mount: Path) -> bool:
+        """Return true when mount has a non-autofs backing filesystem entry."""
+        entries = self._read_mount_table().get(mount, [])
+        return any(fstype != "autofs" for _, fstype in entries)
 
     def _iter_candidate_mounts(
         self,
