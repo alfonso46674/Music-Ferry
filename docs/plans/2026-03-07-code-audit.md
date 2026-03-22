@@ -174,7 +174,7 @@ self._browser: Optional[Browser] = None
 
 Inconsistent with the rest of the codebase (which uses `X | None`). Also imports `re` and `time` inside methods instead of at module top.
 
-**Status (verified 2026-03-22)**: Partially fixed in commit `a95b677` (`Fix linter and format issues in the tests`). `Optional[...]` annotations were converted to `X | None`, but `re` and `time` are still imported inside methods, so this item is not fully resolved.
+**Status (verified 2026-03-22)**: Fixed in commit `713b3e9` (`fix(browser): move regex and time imports to module scope`). The earlier type cleanup from `a95b677` is now complete; `browser.py` uses `X | None` annotations and keeps `re`/`time` at module scope.
 
 ---
 
