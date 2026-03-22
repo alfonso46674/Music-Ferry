@@ -85,7 +85,7 @@ If `pactl` fails, `self._module_id` stays `None`, the sink doesn't exist, and ff
 
 **Impact**: Silent bad recordings on systems where PulseAudio setup fails.
 
-**Status (verified 2026-03-22)**: Not fixed. `AudioRecorder.create_virtual_sink()` still ignores non-zero `pactl load-module` exit codes and does not raise or log a failure.
+**Status (verified 2026-03-22)**: Fixed in commit `6149dbc` (`fix(recorder): fail fast when sink creation fails`). `AudioRecorder.create_virtual_sink()` now raises on non-zero `pactl` exit codes and malformed module ids instead of silently continuing.
 
 ---
 
