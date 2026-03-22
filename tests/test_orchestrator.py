@@ -249,6 +249,53 @@ class TestPlaybackModeSelection:
 
 class TestPlaylistModeRecording:
     @pytest.mark.asyncio
+    @patch("music_ferry.orchestrator.tag_mp3")
+    @patch("music_ferry.orchestrator.asyncio.sleep", new_callable=AsyncMock)
+    async def test_record_track_adds_real_playlist_id(
+        self,
+        mock_sleep,
+        mock_tag_mp3,
+        sample_config: Config,
+        tmp_path: Path,
+    ):
+        orchestrator = Orchestrator.__new__(Orchestrator)
+        orchestrator.config = sample_config
+        orchestrator.spotify_music_dir = tmp_path / "music"
+        orchestrator.spotify_music_dir.mkdir()
+        orchestrator.spotify_library = MagicMock()
+
+        track = Track(
+            id="track1",
+            name="Song 1",
+            artists=["Artist"],
+            album="Album",
+            duration_ms=180000,
+            album_art_url=None,
+        )
+
+        output_path = orchestrator.spotify_music_dir / "track1.mp3"
+        output_path.write_bytes(b"fake mp3")
+
+        mock_browser = AsyncMock()
+        mock_recorder = MagicMock()
+
+        await orchestrator._record_track(
+            track,
+            "playlist1",
+            mock_browser,
+            mock_recorder,
+        )
+
+        orchestrator.spotify_library.add_track.assert_called_once_with(
+            "track1",
+            "track1.mp3",
+            "Song 1",
+            "Artist",
+            "playlist1",
+            size_bytes=8,
+        )
+
+    @pytest.mark.asyncio
     async def test_record_playlist_mode_records_only_new(
         self, sample_config: Config, tmp_path: Path
     ):
@@ -306,6 +353,7 @@ class TestPlaylistModeRecording:
         assert mock_record.call_count == 1
         # The recorded track should be new1
         assert mock_record.call_args[0][0].id == "new1"
+        assert mock_record.call_args[0][1] == "playlist1"
 
     @pytest.mark.asyncio
     async def test_record_playlist_mode_stops_at_playlist_end(
