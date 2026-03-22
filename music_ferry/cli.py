@@ -67,6 +67,16 @@ def _resolve_sources(args: argparse.Namespace, config: Config) -> tuple[bool, bo
     return args.spotify, args.youtube
 
 
+def _source_names(sync_spotify: bool, sync_youtube: bool) -> list[str]:
+    """Convert source booleans into transfer source names."""
+    sources: list[str] = []
+    if sync_spotify:
+        sources.append("spotify")
+    if sync_youtube:
+        sources.append("youtube")
+    return sources
+
+
 def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Ferry Spotify and YouTube playlists to MP3 for offline listening"
@@ -141,7 +151,12 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def cmd_sync(config: Config, verbose: bool) -> int:
+def cmd_sync(
+    config: Config,
+    verbose: bool,
+    sync_spotify: bool = True,
+    sync_youtube: bool = True,
+) -> int:
     """Run sync command - download new tracks, cleanup orphans."""
     from music_ferry.orchestrator import Orchestrator
 
@@ -149,7 +164,12 @@ def cmd_sync(config: Config, verbose: bool) -> int:
     orchestrator = Orchestrator(config)
 
     try:
-        result = asyncio.run(orchestrator.run())
+        result = asyncio.run(
+            orchestrator.run(
+                sync_spotify=sync_spotify,
+                sync_youtube=sync_youtube,
+            )
+        )
         if result.is_success:
             if result.total_tracks == 0:
                 logger.info("Already up to date. No new tracks to sync.")
@@ -170,14 +190,19 @@ def cmd_sync(config: Config, verbose: bool) -> int:
         return 1
 
 
-def cmd_transfer(config: Config, verbose: bool, auto: bool) -> int:
+def cmd_transfer(
+    config: Config,
+    verbose: bool,
+    auto: bool,
+    sources: list[str] | None = None,
+) -> int:
     """Run transfer command - interactive headphones transfer."""
     from music_ferry.transfer import InteractiveTransfer
 
     logger = logging.getLogger(__name__)
 
     try:
-        transfer = InteractiveTransfer(config, auto=auto)
+        transfer = InteractiveTransfer(config, sources=sources, auto=auto)
         return transfer.run()
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
@@ -232,9 +257,21 @@ def main() -> int:
     configure_file_logging(config, args.verbose)
 
     if args.command == "sync":
-        return cmd_sync(config, args.verbose)
+        sync_spotify, sync_youtube = _resolve_sources(args, config)
+        return cmd_sync(
+            config,
+            args.verbose,
+            sync_spotify=sync_spotify,
+            sync_youtube=sync_youtube,
+        )
     elif args.command == "transfer":
-        return cmd_transfer(config, args.verbose, args.auto)
+        sync_spotify, sync_youtube = _resolve_sources(args, config)
+        return cmd_transfer(
+            config,
+            args.verbose,
+            args.auto,
+            sources=_source_names(sync_spotify, sync_youtube),
+        )
     elif args.command == "serve":
         return cmd_serve(config, args.host, args.port, args.reload)
     else:

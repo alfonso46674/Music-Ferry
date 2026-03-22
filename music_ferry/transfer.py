@@ -123,7 +123,7 @@ class InteractiveTransfer:
         auto: bool = False,
     ):
         self.config = config
-        self.sources = sources or ["spotify", "youtube"]
+        self.sources = ["spotify", "youtube"] if sources is None else sources
         self.auto = auto
 
         # Setup base directories
