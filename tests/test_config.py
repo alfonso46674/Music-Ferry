@@ -1,11 +1,10 @@
 # tests/test_config.py
-import tempfile
 from pathlib import Path
 
 import pytest
 import yaml
 
-from music_ferry.config import Config, load_config
+from music_ferry.config import load_config
 
 
 class TestConfig:
@@ -115,6 +114,47 @@ class TestConfig:
 
         config = load_config(config_file)
         assert config.spotify.playlists[0].playlist_id == "37i9dQZEVXcQ9COmYvdajy"
+
+    def test_load_config_rejects_invalid_spotify_playlist_url(self, tmp_path: Path):
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            yaml.dump(
+                {
+                    "spotify": {
+                        "client_id": "test_id",
+                        "client_secret": "test_secret",
+                        "username": "test_user",
+                    },
+                    "playlists": [
+                        {
+                            "name": "Broken Spotify Playlist",
+                            "url": "https://open.spotify.com/album/not-a-playlist",
+                        }
+                    ],
+                    "audio": {"bitrate": 192, "format": "mp3"},
+                    "paths": {
+                        "music_dir": "~/.music-ferry/music",
+                        "headphones_mount": "/media/user/HEADPHONES",
+                        "headphones_music_folder": "Music",
+                    },
+                    "notifications": {
+                        "ntfy_topic": "test-topic",
+                        "ntfy_server": "https://ntfy.sh",
+                        "notify_on_success": False,
+                        "notify_on_failure": True,
+                    },
+                    "behavior": {
+                        "skip_existing": True,
+                        "trim_silence": True,
+                    },
+                }
+            )
+        )
+
+        with pytest.raises(
+            ValueError, match="Invalid Spotify playlist URL for 'Broken Spotify Playlist'"
+        ):
+            load_config(config_file)
 
 
 class TestYouTubeConfig:
@@ -341,3 +381,43 @@ class TestYouTubePlaylistConfig:
             config.youtube.playlists[0].playlist_id
             == "PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf"
         )
+
+    def test_load_config_rejects_invalid_youtube_playlist_url(self, tmp_path: Path):
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            yaml.dump(
+                {
+                    "spotify": {
+                        "client_id": "test_id",
+                        "client_secret": "test_secret",
+                        "username": "test_user",
+                        "playlists": [],
+                    },
+                    "youtube": {
+                        "enabled": True,
+                        "playlists": [
+                            {
+                                "name": "Broken YouTube Playlist",
+                                "url": "https://www.youtube.com/watch?v=abc123",
+                            }
+                        ],
+                    },
+                    "audio": {"bitrate": 192, "format": "mp3"},
+                    "paths": {
+                        "music_dir": "~/.music-ferry",
+                        "headphones_mount": "/media/user/HEADPHONES",
+                        "headphones_music_folder": "Music",
+                    },
+                    "notifications": {
+                        "ntfy_topic": "test",
+                        "ntfy_server": "https://ntfy.sh",
+                    },
+                    "behavior": {"skip_existing": True, "trim_silence": True},
+                }
+            )
+        )
+
+        with pytest.raises(
+            ValueError, match="Invalid YouTube playlist URL for 'Broken YouTube Playlist'"
+        ):
+            load_config(config_file)

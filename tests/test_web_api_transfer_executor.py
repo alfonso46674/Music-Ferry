@@ -32,7 +32,9 @@ async def test_transfer_endpoint_runs_work_in_executor(monkeypatch):
     monkeypatch.setattr(api, "HeadphonesService", FakeHeadphonesService)
     monkeypatch.setattr(asyncio, "get_running_loop", lambda: loop)
 
-    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(config=object())))
+    request = SimpleNamespace(
+        app=SimpleNamespace(state=SimpleNamespace(config=object()))
+    )
     payload = api.HeadphonesTransferRequest(
         mount_path="/tmp/headphones",
         source="spotify",

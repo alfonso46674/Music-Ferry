@@ -3,13 +3,13 @@ import asyncio
 import logging
 from pathlib import Path
 
+from music_ferry.browser import SpotifyBrowser
 from music_ferry.config import Config, PlaylistConfig
 from music_ferry.library import Library
-from music_ferry.spotify_api import SpotifyAPI, Track
-from music_ferry.browser import SpotifyBrowser
+from music_ferry.notify import Notifier, PlaylistResult, SyncResult
 from music_ferry.recorder import AudioRecorder
+from music_ferry.spotify_api import SpotifyAPI, Track
 from music_ferry.tagger import tag_mp3
-from music_ferry.notify import Notifier, SyncResult, PlaylistResult
 from music_ferry.youtube import YouTubeDownloader
 
 logger = logging.getLogger(__name__)
@@ -226,7 +226,7 @@ class Orchestrator:
 
                         for playlist in self.config.spotify.playlists:
                             new_tracks = playlists_with_new_tracks.get(
-                                playlist.playlist_id
+                                playlist.playlist_id, []
                             )
                             all_tracks = all_playlist_tracks.get(
                                 playlist.playlist_id, []
@@ -392,7 +392,12 @@ class Orchestrator:
                 synced_count = 0
                 for track in new_tracks:
                     try:
-                        await self._record_track(track, browser, recorder)
+                        await self._record_track(
+                            track,
+                            playlist.playlist_id,
+                            browser,
+                            recorder,
+                        )
                         synced_count += 1
                     except Exception as e:
                         logger.error(f"Failed to record {track.name}: {e}")
@@ -414,6 +419,7 @@ class Orchestrator:
     async def _record_track(
         self,
         track: Track,
+        playlist_id: str,
         browser: SpotifyBrowser,
         recorder: AudioRecorder,
     ) -> None:
@@ -438,7 +444,7 @@ class Orchestrator:
             f"{track.id}.mp3",
             track.name,
             track.artist_string,
-            "",
+            playlist_id,
             size_bytes=size_bytes,
         )
 
@@ -478,7 +484,12 @@ class Orchestrator:
                 # Record this track
                 logger.info(f"Recording: {track.name} by {track.artist_string}")
                 try:
-                    await self._record_current_track(track, browser, recorder)
+                    await self._record_current_track(
+                        track,
+                        playlist_id,
+                        browser,
+                        recorder,
+                    )
                     recorded_count += 1
                 except Exception as e:
                     logger.error(f"Failed to record {track.name}: {e}")
@@ -503,6 +514,7 @@ class Orchestrator:
     async def _record_current_track(
         self,
         track: Track,
+        playlist_id: str,
         browser: SpotifyBrowser,
         recorder: AudioRecorder,
     ) -> None:
@@ -520,7 +532,7 @@ class Orchestrator:
             f"{track.id}.mp3",
             track.name,
             track.artist_string,
-            "",
+            playlist_id,
             size_bytes=size_bytes,
         )
 

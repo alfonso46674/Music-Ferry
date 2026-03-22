@@ -1,9 +1,9 @@
 # music_ferry/config.py
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-import re
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 
 @dataclass
@@ -57,7 +57,7 @@ class PathsConfig:
     headphones_mount: Path
     headphones_music_folder: str = "Music"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if isinstance(self.music_dir, str):
             self.music_dir = Path(self.music_dir).expanduser()
         if isinstance(self.headphones_mount, str):
@@ -92,6 +92,16 @@ class Config:
     notifications: NotificationsConfig
     behavior: BehaviorConfig
     transfer: TransferConfig
+
+
+def _validate_playlists(playlists: list[PlaylistConfig], source_name: str) -> None:
+    for playlist in playlists:
+        try:
+            playlist.playlist_id
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid {source_name} playlist URL for '{playlist.name}': {playlist.url}"
+            ) from exc
 
 
 def load_config(config_path: Path) -> Config:
@@ -133,6 +143,7 @@ def load_config(config_path: Path) -> Config:
         enabled=spotify_enabled,
         playlists=spotify_playlists,
     )
+    _validate_playlists(spotify.playlists, "Spotify")
 
     # Parse YouTube config
     youtube_data = data.get("youtube", {})
@@ -155,6 +166,7 @@ def load_config(config_path: Path) -> Config:
             else None
         ),
     )
+    _validate_playlists(youtube.playlists, "YouTube")
 
     audio_data = data.get("audio", {})
     audio = AudioConfig(

@@ -6,7 +6,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from music_ferry.library import Library
+from music_ferry.config import Config
+from music_ferry.library import Library, LibraryTrack
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,25 @@ class TransferPlan:
     budget_bytes: int
 
 
+@dataclass
+class PlaylistSelection:
+    playlist_id: str
+    playlist_name: str
+    source: str
+    max_bytes: int | None
+    library: Library
+
+
+@dataclass
+class PlaylistCandidateGroup:
+    playlist_id: str
+    playlist_name: str
+    source: str
+    max_bytes: int | None
+    existing_bytes: int
+    candidates: list[TransferCandidate]
+
+
 class TransferManager:
     def __init__(self, headphones_mount: Path, headphones_music_folder: str):
         self.headphones_mount = headphones_mount
@@ -95,7 +115,7 @@ class TransferManager:
 class InteractiveTransfer:
     def __init__(
         self,
-        config,
+        config: Config,
         sources: list[str] | None = None,
         spotify_library: Library | None = None,
         youtube_library: Library | None = None,
@@ -103,7 +123,7 @@ class InteractiveTransfer:
         auto: bool = False,
     ):
         self.config = config
-        self.sources = sources or ["spotify", "youtube"]
+        self.sources = ["spotify", "youtube"] if sources is None else sources
         self.auto = auto
 
         # Setup base directories
@@ -164,11 +184,14 @@ class InteractiveTransfer:
         return int(value * 1024 * 1024 * 1024)
 
     def _get_reserve_free_bytes(self) -> int:
-        transfer_config = getattr(self.config, "transfer", None)
-        reserve_gb = getattr(transfer_config, "reserve_free_gb", 0.0)
-        try:
-            reserve_gb = float(reserve_gb)
-        except (TypeError, ValueError):
+        reserve_gb_value: object = getattr(
+            getattr(self.config, "transfer", None),
+            "reserve_free_gb",
+            0.0,
+        )
+        if isinstance(reserve_gb_value, int | float):
+            reserve_gb = float(reserve_gb_value)
+        else:
             reserve_gb = 0.0
         return self._bytes_from_gb(reserve_gb) or 0
 
@@ -182,51 +205,63 @@ class InteractiveTransfer:
             return f"{size_bytes / (1024 * 1024):.1f} MB"
         return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
-    def _get_playlist_selections(self) -> list[dict]:
-        selections: list[dict] = []
+    def _get_playlist_selections(self) -> list[PlaylistSelection]:
+        selections: list[PlaylistSelection] = []
 
-        def add_from_config(source: str, library: Library) -> None:
-            source_config = getattr(self.config, source, None)
-            playlists = (
-                getattr(source_config, "playlists", None) if source_config else None
-            )
-            if isinstance(playlists, list) and playlists:
-                for playlist in playlists:
+        def add_from_config(
+            source: str,
+            library: Library,
+            configured_playlists: object,
+        ) -> None:
+            if isinstance(configured_playlists, list) and configured_playlists:
+                for playlist in configured_playlists:
                     selections.append(
-                        {
-                            "id": playlist.playlist_id,
-                            "name": playlist.name,
-                            "source": source,
-                            "max_bytes": self._bytes_from_gb(playlist.max_gb),
-                            "library": library,
-                        }
+                        PlaylistSelection(
+                            playlist_id=playlist.playlist_id,
+                            playlist_name=playlist.name,
+                            source=source,
+                            max_bytes=self._bytes_from_gb(playlist.max_gb),
+                            library=library,
+                        )
                     )
                 return
 
-            for playlist in library.get_all_playlists():
+            for library_playlist in library.get_all_playlists():
                 selections.append(
-                    {
-                        "id": playlist.id,
-                        "name": playlist.name,
-                        "source": source,
-                        "max_bytes": None,
-                        "library": library,
-                    }
+                    PlaylistSelection(
+                        playlist_id=library_playlist.id,
+                        playlist_name=library_playlist.name,
+                        source=source,
+                        max_bytes=None,
+                        library=library,
+                    )
                 )
 
         if "spotify" in self.sources:
-            add_from_config("spotify", self.spotify_library)
+            add_from_config(
+                "spotify",
+                self.spotify_library,
+                self.config.spotify.playlists,
+            )
         if "youtube" in self.sources:
-            add_from_config("youtube", self.youtube_library)
+            add_from_config(
+                "youtube",
+                self.youtube_library,
+                self.config.youtube.playlists,
+            )
 
         return selections
 
-    def _ordered_tracks_for_playlist(self, library: Library, playlist_id: str) -> list:
+    def _ordered_tracks_for_playlist(
+        self,
+        library: Library,
+        playlist_id: str,
+    ) -> list[LibraryTrack]:
         tracks = library.get_tracks_for_playlist(playlist_id)
         track_map = {track.id: track for track in tracks}
         playlist = library.get_playlist(playlist_id)
         ordered_ids = playlist.track_order if playlist else []
-        ordered = []
+        ordered: list[LibraryTrack] = []
         for track_id in ordered_ids:
             track = track_map.pop(track_id, None)
             if track:
@@ -322,14 +357,17 @@ class InteractiveTransfer:
             for filename in headphones_files - local_filenames
         ]
 
-    def _build_transfer_candidates(self, headphones_files: set[str]) -> list[dict]:
-        candidates: list[dict] = []
+    def _build_transfer_candidates(
+        self,
+        headphones_files: set[str],
+    ) -> list[PlaylistCandidateGroup]:
+        candidates: list[PlaylistCandidateGroup] = []
         local_files = self._get_local_files()
 
         for playlist in self._get_playlist_selections():
-            library = playlist["library"]
-            playlist_id = playlist["id"]
-            playlist_name = playlist["name"]
+            library = playlist.library
+            playlist_id = playlist.playlist_id
+            playlist_name = playlist.playlist_name
             ordered_tracks = self._ordered_tracks_for_playlist(library, playlist_id)
             playlist_candidates: list[TransferCandidate] = []
             existing_bytes = 0
@@ -355,34 +393,37 @@ class InteractiveTransfer:
                         src_path=src,
                         playlist_id=playlist_id,
                         playlist_name=playlist_name,
-                        source=playlist["source"],
+                        source=playlist.source,
                     )
                 )
 
             candidates.append(
-                {
-                    "playlist_id": playlist_id,
-                    "playlist_name": playlist_name,
-                    "source": playlist["source"],
-                    "max_bytes": playlist["max_bytes"],
-                    "existing_bytes": existing_bytes,
-                    "candidates": playlist_candidates,
-                }
+                PlaylistCandidateGroup(
+                    playlist_id=playlist_id,
+                    playlist_name=playlist_name,
+                    source=playlist.source,
+                    max_bytes=playlist.max_bytes,
+                    existing_bytes=existing_bytes,
+                    candidates=playlist_candidates,
+                )
             )
 
         return candidates
 
-    def _prompt_playlist_selection(self, playlists: list[dict]) -> list[str]:
+    def _prompt_playlist_selection(
+        self,
+        playlists: list[PlaylistCandidateGroup],
+    ) -> list[str]:
         print("\n--- Playlist Selection ---")
         for idx, playlist in enumerate(playlists, 1):
-            total_size = sum(t.size_bytes for t in playlist["candidates"])
-            max_bytes = playlist["max_bytes"]
+            total_size = sum(t.size_bytes for t in playlist.candidates)
+            max_bytes = playlist.max_bytes
             max_label = (
                 self._format_bytes(max_bytes) if max_bytes is not None else "none"
             )
             print(
-                f"[{idx}] {playlist['playlist_name']} "
-                f"({playlist['source']}): "
+                f"[{idx}] {playlist.playlist_name} "
+                f"({playlist.source}): "
                 f"{self._format_bytes(total_size)} new, "
                 f"cap: {max_label}"
             )
@@ -393,7 +434,7 @@ class InteractiveTransfer:
         if choice == "none":
             return []
         if choice == "all" or choice == "":
-            return [p["playlist_id"] for p in playlists]
+            return [playlist.playlist_id for playlist in playlists]
 
         selected_ids: list[str] = []
         parts = [p.strip() for p in choice.split(",") if p.strip()]
@@ -401,7 +442,7 @@ class InteractiveTransfer:
             if part.isdigit():
                 idx = int(part)
                 if 1 <= idx <= len(playlists):
-                    selected_ids.append(playlists[idx - 1]["playlist_id"])
+                    selected_ids.append(playlists[idx - 1].playlist_id)
         return selected_ids
 
     def _prompt_track_selection_mode(self, playlist_name: str) -> str:
@@ -420,7 +461,7 @@ class InteractiveTransfer:
 
     def _select_tracks_for_playlist(
         self,
-        playlist: dict,
+        playlist: PlaylistCandidateGroup,
         budget_bytes: int,
         playlist_budget_bytes: int | None,
         selected_filenames: set[str],
@@ -428,7 +469,7 @@ class InteractiveTransfer:
     ) -> tuple[list[TransferCandidate], int]:
         selected: list[TransferCandidate] = []
         used_bytes = 0
-        for track in playlist["candidates"]:
+        for track in playlist.candidates:
             if track.filename in selected_filenames:
                 continue
 
@@ -522,61 +563,59 @@ class InteractiveTransfer:
 
         unique_candidates: dict[str, int] = {}
         for playlist in playlists:
-            for track in playlist["candidates"]:
+            for track in playlist.candidates:
                 unique_candidates.setdefault(track.filename, track.size_bytes)
 
         total_unique_bytes = sum(unique_candidates.values())
         needs_prompt = total_unique_bytes > budget_bytes
         for playlist in playlists:
-            max_bytes = playlist["max_bytes"]
+            max_bytes = playlist.max_bytes
             if max_bytes is not None:
-                playlist_total = playlist["existing_bytes"] + sum(
-                    t.size_bytes for t in playlist["candidates"]
+                playlist_total = playlist.existing_bytes + sum(
+                    t.size_bytes for t in playlist.candidates
                 )
                 if playlist_total > max_bytes:
                     needs_prompt = True
                     break
 
         if auto or not needs_prompt:
-            selected_playlist_ids = [p["playlist_id"] for p in playlists]
+            selected_playlist_ids = [playlist.playlist_id for playlist in playlists]
         else:
             selected_playlist_ids = self._prompt_playlist_selection(playlists)
 
         for playlist in playlists:
-            if playlist["playlist_id"] not in selected_playlist_ids:
-                logger.info("Skipping playlist: %s", playlist["playlist_name"])
+            if playlist.playlist_id not in selected_playlist_ids:
+                logger.info("Skipping playlist: %s", playlist.playlist_name)
                 continue
 
             remaining_budget = budget_bytes - total_selected_bytes
             if remaining_budget <= 0:
                 logger.info(
-                    "Budget exhausted before playlist %s", playlist["playlist_name"]
+                    "Budget exhausted before playlist %s", playlist.playlist_name
                 )
                 break
 
-            max_bytes = playlist["max_bytes"]
+            max_bytes = playlist.max_bytes
             playlist_budget = None
             if max_bytes is not None:
                 selected_overlap = sum(
                     t.size_bytes
-                    for t in playlist["candidates"]
+                    for t in playlist.candidates
                     if t.filename in selected_filenames
                 )
-                used_on_device = playlist["existing_bytes"] + selected_overlap
+                used_on_device = playlist.existing_bytes + selected_overlap
                 playlist_budget = max(max_bytes - used_on_device, 0)
 
-            playlist_new_bytes = sum(t.size_bytes for t in playlist["candidates"])
+            playlist_new_bytes = sum(t.size_bytes for t in playlist.candidates)
             needs_trim = playlist_new_bytes > remaining_budget or (
                 playlist_budget is not None and playlist_new_bytes > playlist_budget
             )
 
             manual = False
             if not auto and needs_trim:
-                mode = self._prompt_track_selection_mode(playlist["playlist_name"])
+                mode = self._prompt_track_selection_mode(playlist.playlist_name)
                 if mode == "skip":
-                    logger.info(
-                        "Skipping playlist by user: %s", playlist["playlist_name"]
-                    )
+                    logger.info("Skipping playlist by user: %s", playlist.playlist_name)
                     continue
                 manual = mode == "manual"
 

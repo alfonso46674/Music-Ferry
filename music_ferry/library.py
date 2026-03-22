@@ -1,5 +1,7 @@
 # music_ferry/library.py
 import json
+import os
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -110,8 +112,23 @@ class Library:
             },
         }
 
-        with open(self.db_path, "w") as f:
-            json.dump(data, f, indent=2)
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.db_path.parent,
+                delete=False,
+            ) as temp_file:
+                temp_path = Path(temp_file.name)
+                json.dump(data, temp_file, indent=2)
+                temp_file.flush()
+                os.fsync(temp_file.fileno())
+
+            temp_path.replace(self.db_path)
+        finally:
+            if temp_path is not None and temp_path.exists():
+                temp_path.unlink()
 
     def get_track(self, track_id: str) -> LibraryTrack | None:
         return self._tracks.get(track_id)

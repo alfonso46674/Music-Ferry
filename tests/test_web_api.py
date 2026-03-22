@@ -1,10 +1,12 @@
 # tests/test_web_api.py
 """Tests for the Music Ferry web API."""
 
+from collections.abc import AsyncIterator
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 
 from music_ferry.config import (
     AudioConfig,
@@ -48,25 +50,31 @@ def mock_config(tmp_path: Path) -> Config:
 
 
 @pytest.fixture
-def client(mock_config: Config) -> TestClient:
+async def client(mock_config: Config) -> AsyncIterator[AsyncClient]:
     """Create a test client with mock config."""
     from music_ferry.web import create_app
 
     app = create_app(mock_config)
-    with TestClient(app) as test_client:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+    ) as test_client:
         yield test_client
 
 
 class TestHealthEndpoint:
-    def test_health_returns_healthy(self, client: TestClient):
-        response = client.get("/api/v1/health")
+    @pytest.mark.asyncio
+    async def test_health_returns_healthy(self, client: AsyncClient):
+        response = await client.get("/api/v1/health")
         assert response.status_code == 200
         assert response.json() == {"status": "healthy"}
 
 
 class TestStatusEndpoint:
-    def test_status_returns_sync_state(self, client: TestClient):
-        response = client.get("/api/v1/status")
+    @pytest.mark.asyncio
+    async def test_status_returns_sync_state(self, client: AsyncClient):
+        response = await client.get("/api/v1/status")
         assert response.status_code == 200
         data = response.json()
         assert "syncing" in data
@@ -75,12 +83,17 @@ class TestStatusEndpoint:
 
 
 class TestLibraryEndpoint:
-    def test_library_returns_summary(self, client: TestClient, mock_config: Config):
+    @pytest.mark.asyncio
+    async def test_library_returns_summary(
+        self,
+        client: AsyncClient,
+        mock_config: Config,
+    ):
         # Create the directories
         (mock_config.paths.music_dir / "spotify").mkdir(parents=True, exist_ok=True)
         (mock_config.paths.music_dir / "youtube").mkdir(parents=True, exist_ok=True)
 
-        response = client.get("/api/v1/library")
+        response = await client.get("/api/v1/library")
         assert response.status_code == 200
         data = response.json()
         assert "spotify" in data
@@ -88,26 +101,33 @@ class TestLibraryEndpoint:
         assert "total" in data
         assert data["total"]["tracks"] == 0
 
-    def test_library_detail_spotify(self, client: TestClient, mock_config: Config):
+    @pytest.mark.asyncio
+    async def test_library_detail_spotify(
+        self,
+        client: AsyncClient,
+        mock_config: Config,
+    ):
         (mock_config.paths.music_dir / "spotify").mkdir(parents=True, exist_ok=True)
 
-        response = client.get("/api/v1/library/spotify")
+        response = await client.get("/api/v1/library/spotify")
         assert response.status_code == 200
         data = response.json()
         assert data["source"] == "spotify"
         assert "tracks" in data
         assert "playlists" in data
 
-    def test_library_detail_unknown_source(self, client: TestClient):
-        response = client.get("/api/v1/library/unknown")
+    @pytest.mark.asyncio
+    async def test_library_detail_unknown_source(self, client: AsyncClient):
+        response = await client.get("/api/v1/library/unknown")
         assert response.status_code == 200
         data = response.json()
         assert "error" in data
 
 
 class TestConfigEndpoint:
-    def test_config_redacts_secrets(self, client: TestClient):
-        response = client.get("/api/v1/config")
+    @pytest.mark.asyncio
+    async def test_config_redacts_secrets(self, client: AsyncClient):
+        response = await client.get("/api/v1/config")
         assert response.status_code == 200
         data = response.json()
 
@@ -122,15 +142,44 @@ class TestConfigEndpoint:
 
 
 class TestSyncEndpoint:
-    def test_sync_trigger_returns_job_id(self, client: TestClient):
-        response = client.post("/api/v1/sync")
+    @pytest.mark.asyncio
+    async def test_sync_trigger_returns_job_id(
+        self,
+        client: AsyncClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        fake_service = SimpleNamespace(
+            start_sync=lambda: None,
+            current_job_id=None,
+        )
+
+        async def fake_start_sync() -> str:
+            return "job12345"
+
+        fake_service.start_sync = fake_start_sync
+        monkeypatch.setattr(
+            "music_ferry.web.routes.api.get_sync_service",
+            lambda _app: fake_service,
+        )
+
+        response = await client.post("/api/v1/sync")
         assert response.status_code == 200
         data = response.json()
-        # May return job_id or error if already syncing
-        assert "job_id" in data or "error" in data
+        assert data == {"job_id": "job12345", "status": "started"}
 
-    def test_sync_status_not_found(self, client: TestClient):
-        response = client.get("/api/v1/sync/nonexistent")
+    @pytest.mark.asyncio
+    async def test_sync_status_not_found(
+        self,
+        client: AsyncClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        fake_service = SimpleNamespace(get_job_status=lambda _job_id: None)
+        monkeypatch.setattr(
+            "music_ferry.web.routes.api.get_sync_service",
+            lambda _app: fake_service,
+        )
+
+        response = await client.get("/api/v1/sync/nonexistent")
         assert response.status_code == 200
         data = response.json()
         assert "error" in data
@@ -138,8 +187,9 @@ class TestSyncEndpoint:
 
 
 class TestScheduleEndpoints:
-    def test_schedule_get_returns_defaults(self, client: TestClient):
-        response = client.get("/api/v1/schedule")
+    @pytest.mark.asyncio
+    async def test_schedule_get_returns_defaults(self, client: AsyncClient):
+        response = await client.get("/api/v1/schedule")
         assert response.status_code == 200
         data = response.json()
         assert data["enabled"] is False
@@ -147,8 +197,9 @@ class TestScheduleEndpoints:
         assert data["source"] == "youtube"
         assert data["next_run"] is None
 
-    def test_schedule_post_updates_settings(self, client: TestClient):
-        response = client.post(
+    @pytest.mark.asyncio
+    async def test_schedule_post_updates_settings(self, client: AsyncClient):
+        response = await client.post(
             "/api/v1/schedule",
             json={"enabled": True, "time": "06:30", "source": "all"},
         )
@@ -161,12 +212,13 @@ class TestScheduleEndpoints:
 
 
 class TestHeadphonesEndpoints:
-    def test_headphones_scan_includes_configured_mount(
+    @pytest.mark.asyncio
+    async def test_headphones_scan_includes_configured_mount(
         self,
-        client: TestClient,
+        client: AsyncClient,
         mock_config: Config,
     ):
-        response = client.get("/api/v1/headphones/scan")
+        response = await client.get("/api/v1/headphones/scan")
         assert response.status_code == 200
         data = response.json()
         assert "devices" in data
@@ -183,15 +235,16 @@ class TestHeadphonesEndpoints:
         assert configured is not None
         assert configured["connected"] is False
 
-    def test_headphones_access_creates_music_folder(
+    @pytest.mark.asyncio
+    async def test_headphones_access_creates_music_folder(
         self,
-        client: TestClient,
+        client: AsyncClient,
         mock_config: Config,
     ):
         mount = mock_config.paths.headphones_mount
         mount.mkdir(parents=True, exist_ok=True)
 
-        response = client.post(
+        response = await client.post(
             "/api/v1/headphones/access",
             json={"mount_path": str(mount)},
         )
@@ -203,11 +256,19 @@ class TestHeadphonesEndpoints:
         assert destination.exists()
         assert destination.is_dir()
 
-    def test_headphones_transfer_copies_selected_source(
+    @pytest.mark.asyncio
+    async def test_headphones_transfer_copies_selected_source(
         self,
-        client: TestClient,
         mock_config: Config,
+        monkeypatch: pytest.MonkeyPatch,
     ):
+        from music_ferry.web.routes import api
+
+        class _InlineLoop:
+            async def run_in_executor(self, executor, func, *args):
+                assert executor is None
+                return func(*args)
+
         spotify_dir = mock_config.paths.music_dir / "spotify"
         spotify_music = spotify_dir / "music"
         spotify_music.mkdir(parents=True, exist_ok=True)
@@ -228,22 +289,34 @@ class TestHeadphonesEndpoints:
         destination = mount / mock_config.paths.headphones_music_folder
         destination.mkdir(parents=True, exist_ok=True)
 
-        response = client.post(
-            "/api/v1/headphones/transfer",
-            json={"mount_path": str(mount), "source": "spotify"},
+        request = SimpleNamespace(
+            app=SimpleNamespace(state=SimpleNamespace(config=mock_config))
         )
-        assert response.status_code == 200
-        data = response.json()
+        payload = api.HeadphonesTransferRequest(
+            mount_path=str(mount),
+            source="spotify",
+        )
+        monkeypatch.setattr(api.asyncio, "get_running_loop", lambda: _InlineLoop())
+
+        data = await api.transfer_to_headphones(payload, request)
         assert data["ok"] is True
         assert data["copied"] == 1
         assert (destination / "track1.mp3").exists()
         assert data["status"]["new_to_transfer"] == 0
 
-    def test_headphones_transfer_reports_already_synced(
+    @pytest.mark.asyncio
+    async def test_headphones_transfer_reports_already_synced(
         self,
-        client: TestClient,
         mock_config: Config,
+        monkeypatch: pytest.MonkeyPatch,
     ):
+        from music_ferry.web.routes import api
+
+        class _InlineLoop:
+            async def run_in_executor(self, executor, func, *args):
+                assert executor is None
+                return func(*args)
+
         spotify_dir = mock_config.paths.music_dir / "spotify"
         spotify_music = spotify_dir / "music"
         spotify_music.mkdir(parents=True, exist_ok=True)
@@ -265,12 +338,16 @@ class TestHeadphonesEndpoints:
         destination.mkdir(parents=True, exist_ok=True)
         (destination / "track1.mp3").write_bytes(b"data")
 
-        response = client.post(
-            "/api/v1/headphones/transfer",
-            json={"mount_path": str(mount), "source": "spotify"},
+        request = SimpleNamespace(
+            app=SimpleNamespace(state=SimpleNamespace(config=mock_config))
         )
-        assert response.status_code == 200
-        data = response.json()
+        payload = api.HeadphonesTransferRequest(
+            mount_path=str(mount),
+            source="spotify",
+        )
+        monkeypatch.setattr(api.asyncio, "get_running_loop", lambda: _InlineLoop())
+
+        data = await api.transfer_to_headphones(payload, request)
         assert data["ok"] is True
         assert data["copied"] == 0
         assert data["removed"] == 0

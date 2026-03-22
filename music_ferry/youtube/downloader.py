@@ -2,6 +2,7 @@
 import logging
 import random
 import time
+from collections.abc import Callable
 from pathlib import Path
 from urllib.error import HTTPError
 
@@ -34,7 +35,7 @@ class YouTubeDownloader:
 
         Returns list of Track objects with source="youtube".
         """
-        ydl_opts = {
+        ydl_opts: dict[str, object] = {
             "quiet": True,
             "no_warnings": True,
             "extract_flat": False,
@@ -64,12 +65,12 @@ class YouTubeDownloader:
 
         return tracks
 
-    def _progress_hook(self, d: dict) -> None:
+    def _progress_hook(self, d: dict[str, object]) -> None:
         """Log download progress."""
         if d["status"] == "downloading":
-            percent = d.get("_percent_str", "?%").strip()
-            speed = d.get("_speed_str", "?").strip()
-            eta = d.get("_eta_str", "?").strip()
+            percent = str(d.get("_percent_str", "?%")).strip()
+            speed = str(d.get("_speed_str", "?")).strip()
+            eta = str(d.get("_eta_str", "?")).strip()
             logger.info(f"  Progress: {percent} at {speed}, ETA: {eta}")
         elif d["status"] == "finished":
             logger.info("  Download complete, converting to MP3...")
@@ -99,7 +100,7 @@ class YouTubeDownloader:
         output_path = self.output_dir / f"{track.id}.mp3"
         output_template = str(self.output_dir / f"{track.id}.%(ext)s")
 
-        ydl_opts = {
+        ydl_opts: dict[str, object] = {
             "format": "bestaudio[ext=m4a]/bestaudio/best",
             "outtmpl": output_template,
             "postprocessors": [
@@ -147,9 +148,9 @@ class YouTubeDownloader:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([video_url])
                 return output_path
-            except Exception as e:
-                last_error = e
-                should_retry = attempt < attempts and self._is_retryable_error(e)
+            except Exception as exc:
+                last_error = exc
+                should_retry = attempt < attempts and self._is_retryable_error(exc)
                 if not should_retry:
                     raise
                 backoff = self.retry_delay_seconds * (2 ** (attempt - 1))
@@ -158,7 +159,7 @@ class YouTubeDownloader:
                     track.name,
                     attempt,
                     attempts,
-                    e,
+                    exc,
                     backoff,
                 )
                 time.sleep(backoff)
@@ -170,7 +171,7 @@ class YouTubeDownloader:
     def download_tracks(
         self,
         tracks: list[Track],
-        on_progress: callable = None,
+        on_progress: Callable[[int, int, Track], None] | None = None,
     ) -> tuple[list[Track], list[tuple[Track, Exception]]]:
         """Download multiple tracks with random delays.
 

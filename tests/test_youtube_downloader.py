@@ -1,13 +1,13 @@
 # tests/test_youtube_downloader.py
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError
 
+import pytest
 from yt_dlp.utils import DownloadError
 
-from music_ferry.youtube.downloader import YouTubeDownloader
 from music_ferry.spotify_api import Track
+from music_ferry.youtube.downloader import YouTubeDownloader
 
 
 class TestYouTubeDownloader:
@@ -17,7 +17,7 @@ class TestYouTubeDownloader:
 
     def test_init_creates_output_dir(self, tmp_path: Path):
         output_dir = tmp_path / "youtube" / "music"
-        downloader = YouTubeDownloader(output_dir=output_dir, bitrate=192)
+        YouTubeDownloader(output_dir=output_dir, bitrate=192)
         assert output_dir.exists()
 
     @patch("music_ferry.youtube.downloader.yt_dlp.YoutubeDL")

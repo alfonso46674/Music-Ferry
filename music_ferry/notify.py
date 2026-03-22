@@ -1,7 +1,10 @@
 # music_ferry/notify.py
-from dataclasses import dataclass, field
+import logging
+from dataclasses import dataclass
 
-import requests
+import requests  # type: ignore[import-untyped]
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -99,6 +102,5 @@ class Notifier:
                 },
                 timeout=10,
             )
-        except Exception:
-            # Don't let notification failures crash the app
-            pass
+        except requests.RequestException as exc:
+            logger.warning("Notification failed: %s", exc)

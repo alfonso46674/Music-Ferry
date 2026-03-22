@@ -1,7 +1,8 @@
 # tests/test_integration.py
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock
+
+import pytest
 
 from music_ferry.library import Library
 from music_ferry.transfer import InteractiveTransfer

@@ -1,10 +1,9 @@
 # tests/test_library.py
 import json
 from pathlib import Path
+from unittest.mock import patch
 
-import pytest
-
-from music_ferry.library import LibraryTrack, LibraryPlaylist, Library
+from music_ferry.library import Library, LibraryPlaylist, LibraryTrack
 
 
 class TestLibraryTrack:
@@ -113,6 +112,25 @@ class TestLibrary:
         track = lib2.get_track("abc123")
         assert track is not None
         assert track.title == "Song"
+
+    def test_save_writes_via_temp_file_replace(self, tmp_path: Path):
+        db_path = tmp_path / "library.json"
+        lib = Library(db_path)
+        original_replace = Path.replace
+
+        with patch(
+            "pathlib.Path.replace",
+            autospec=True,
+            side_effect=original_replace,
+        ) as mock_replace:
+            lib.add_track("abc123", "abc123.mp3", "Song", "Artist", "playlist1")
+
+        assert mock_replace.call_count == 1
+        source_path, destination_path = mock_replace.call_args.args
+        assert source_path != db_path
+        assert source_path.parent == db_path.parent
+        assert destination_path == db_path
+        assert db_path.exists()
 
     def test_delete_track(self, tmp_path: Path):
         lib = Library(tmp_path / "library.json")

@@ -1,8 +1,9 @@
 # tests/test_metrics.py
 """Tests for Prometheus metrics."""
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from music_ferry.config import (
     AudioConfig,

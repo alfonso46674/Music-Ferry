@@ -9,9 +9,12 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI
+
+from music_ferry.config import Config
+from music_ferry.notify import SyncResult
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +94,10 @@ class SyncService:
             return None
         if self._next_scheduled_time is None:
             self._next_scheduled_time = self._compute_next_scheduled_time()
-        return self._next_scheduled_time.isoformat()
+        next_time = self._next_scheduled_time
+        if next_time is None:
+            return None
+        return next_time.isoformat()
 
     async def start_sync(
         self,
@@ -237,11 +243,11 @@ class SyncService:
 
     def _run_orchestrator_blocking(
         self,
-        config,
+        config: Config,
         *,
         sync_spotify: bool,
         sync_youtube: bool,
-    ):
+    ) -> SyncResult:
         """Run orchestrator coroutine on a dedicated event loop in a worker thread."""
         from music_ferry.orchestrator import Orchestrator
 
@@ -261,11 +267,15 @@ class SyncService:
                 await self._wait_for_scheduler(15.0)
                 continue
 
-            self._next_scheduled_time = self._compute_next_scheduled_time()
+            next_scheduled_time = self._compute_next_scheduled_time()
+            if next_scheduled_time is None:
+                self._next_scheduled_time = None
+                await self._wait_for_scheduler(15.0)
+                continue
+
+            self._next_scheduled_time = next_scheduled_time
             now = datetime.now()
-            seconds_until_due = (
-                self._next_scheduled_time - now
-            ).total_seconds()
+            seconds_until_due = (next_scheduled_time - now).total_seconds()
 
             if seconds_until_due > 0:
                 await self._wait_for_scheduler(min(seconds_until_due, 15.0))
@@ -314,7 +324,7 @@ class SyncService:
             return today_target + timedelta(days=1)
         if now <= today_target:
             return today_target
-        return today_target
+        return today_target + timedelta(days=1)
 
     def _schedule_source_flags(self) -> tuple[bool, bool]:
         """Map schedule source selection to sync flags."""
@@ -327,7 +337,7 @@ class SyncService:
 
     def _get_schedule_file(self) -> Path:
         """Location of scheduler settings persisted by the web UI."""
-        config = self.app.state.config
+        config = cast(Config, self.app.state.config)
         return config.paths.music_dir / "web_schedule.json"
 
     def _load_schedule(self) -> SyncSchedule:
@@ -418,14 +428,12 @@ class SyncService:
             "error": job.error,
         }
 
-
-# Singleton instance per app
-_sync_services: dict[int, SyncService] = {}
-
-
 def get_sync_service(app: FastAPI) -> SyncService:
     """Get or create the SyncService for an app."""
-    app_id = id(app)
-    if app_id not in _sync_services:
-        _sync_services[app_id] = SyncService(app)
-    return _sync_services[app_id]
+    existing = getattr(app.state, "sync_service", None)
+    if isinstance(existing, SyncService):
+        return existing
+
+    service = SyncService(app)
+    app.state.sync_service = service
+    return service
