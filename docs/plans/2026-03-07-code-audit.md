@@ -184,7 +184,7 @@ Inconsistent with the rest of the codebase (which uses `X | None`). Also imports
 
 The URL → ID extraction should happen eagerly in `load_config()` and stored as a field, or `playlist_id` should be validated as part of config loading.
 
-**Status (verified 2026-03-22)**: Not fixed. `PlaylistConfig.playlist_id` still performs validation lazily, and `load_config()` still constructs `PlaylistConfig` objects without forcing URL validation.
+**Status (verified 2026-03-22)**: Fixed in commit `d566206` (`fix(config): validate playlist urls during load`). `load_config()` now validates every parsed playlist URL immediately and raises a source-specific `ValueError` before sync starts.
 
 ---
 
