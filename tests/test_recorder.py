@@ -2,6 +2,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from music_ferry.recorder import SINK_NAMES, AudioRecorder
 
 
@@ -27,6 +29,29 @@ class TestAudioRecorder:
         assert "pactl" in call_args
         assert "load-module" in call_args
         assert "module-null-sink" in call_args
+        assert recorder._module_id == 123
+
+    @patch("music_ferry.recorder.subprocess.run")
+    def test_create_virtual_sink_raises_on_pactl_failure(self, mock_run):
+        mock_run.return_value = MagicMock(
+            returncode=1,
+            stdout="",
+            stderr="Connection refused",
+        )
+
+        recorder = AudioRecorder(bitrate=192)
+
+        with pytest.raises(RuntimeError, match="Failed to create virtual audio sink"):
+            recorder.create_virtual_sink()
+
+    @patch("music_ferry.recorder.subprocess.run")
+    def test_create_virtual_sink_raises_on_invalid_module_id(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="not-a-number")
+
+        recorder = AudioRecorder(bitrate=192)
+
+        with pytest.raises(RuntimeError, match="Failed to parse virtual audio sink"):
+            recorder.create_virtual_sink()
 
     @patch("music_ferry.recorder.subprocess.run")
     def test_destroy_virtual_sink(self, mock_run):

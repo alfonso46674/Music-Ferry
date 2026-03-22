@@ -46,8 +46,16 @@ class AudioRecorder:
             capture_output=True,
             text=True,
         )
-        if result.returncode == 0:
+        if result.returncode != 0:
+            message = result.stderr.strip() or result.stdout.strip() or "unknown error"
+            raise RuntimeError(f"Failed to create virtual audio sink: {message}")
+
+        try:
             self._module_id = int(result.stdout.strip())
+        except ValueError as exc:
+            raise RuntimeError(
+                f"Failed to parse virtual audio sink module id: {result.stdout.strip()}"
+            ) from exc
 
     def destroy_virtual_sink(self) -> None:
         if self._module_id is not None:
