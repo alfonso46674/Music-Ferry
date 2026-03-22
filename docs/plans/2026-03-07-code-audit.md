@@ -21,7 +21,7 @@ Should use `mutagen.File` or create an empty MP3 object instead of re-calling `M
 
 **Impact**: Tags are never written for MP3 files without an ID3 header; exception propagates up uncaught.
 
-**Status (verified 2026-03-22)**: Not fixed. `music_ferry/tagger.py` still re-calls `MP3(mp3_path)` inside the `except ID3NoHeaderError` block at current `HEAD` (`a95b677`).
+**Status (verified 2026-03-22)**: Fixed in commit `23810a9` (`fix(tagger): create ID3 tags when header is missing`). `music_ferry/tagger.py` now loads existing ID3 tags directly and creates a fresh `ID3()` object when the file has no header, instead of re-calling `MP3(mp3_path)`.
 
 ---
 
