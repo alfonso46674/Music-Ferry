@@ -21,6 +21,8 @@ Should use `mutagen.File` or create an empty MP3 object instead of re-calling `M
 
 **Impact**: Tags are never written for MP3 files without an ID3 header; exception propagates up uncaught.
 
+**Status (verified 2026-03-22)**: Not fixed. `music_ferry/tagger.py` still re-calls `MP3(mp3_path)` inside the `except ID3NoHeaderError` block at current `HEAD` (`a95b677`).
+
 ---
 
 ### 2. `cli.py` — `--spotify`/`--youtube` flags silently ignored
@@ -39,6 +41,8 @@ Both commands always sync/transfer all sources regardless of `--spotify`/`--yout
 
 **Impact**: Documented CLI flags are completely non-functional.
 
+**Status (verified 2026-03-22)**: Not fixed. `main()` still calls `cmd_sync(config, args.verbose)` and `cmd_transfer(config, args.verbose, args.auto)` without routing through `_resolve_sources()` or passing source selection onward.
+
 ---
 
 ### 3. `library.py:87-114` — Non-atomic file writes
@@ -46,6 +50,8 @@ Both commands always sync/transfer all sources regardless of `--spotify`/`--yout
 `save()` writes directly to `library.json` with `open(self.db_path, "w")`. A crash, OOM kill, or `KeyboardInterrupt` during the write leaves a truncated/corrupt JSON file with no recovery path.
 
 **Impact**: Permanent library corruption on unexpected process termination.
+
+**Status (verified 2026-03-22)**: Not fixed. `Library.save()` in `music_ferry/library.py` still writes directly to `library.json` with `open(self.db_path, "w")` and does not use a temp file plus `replace()`.
 
 ---
 
@@ -59,6 +65,8 @@ self.spotify_library.add_track(track.id, ..., "")
 This adds `""` to `track.playlists`. While `_update_playlist_membership()` later adds the real playlist_id, the `""` entry is never removed. Tracks end up with `playlists = ["", "real_id"]`.
 
 **Impact**: The orphan detection (`is_orphaned = len(playlists) == 0`) still works (not zero), but the library is polluted with garbage entries, and any code iterating `track.playlists` will encounter the empty string.
+
+**Status (verified 2026-03-22)**: Not fixed. `music_ferry/orchestrator.py` still calls `self.spotify_library.add_track(..., "", ...)` in both `_record_track()` and `_record_current_track()`.
 
 ---
 
@@ -77,6 +85,8 @@ If `pactl` fails, `self._module_id` stays `None`, the sink doesn't exist, and ff
 
 **Impact**: Silent bad recordings on systems where PulseAudio setup fails.
 
+**Status (verified 2026-03-22)**: Not fixed. `AudioRecorder.create_virtual_sink()` still ignores non-zero `pactl load-module` exit codes and does not raise or log a failure.
+
 ---
 
 ### 6. `recorder.py:85-91` — Unhandled `subprocess.TimeoutExpired`
@@ -90,6 +100,8 @@ self._ffmpeg_process.wait(timeout=5)  # raises TimeoutExpired if ffmpeg hangs
 
 **Impact**: Resource leak (dangling pactl module) on hung ffmpeg process.
 
+**Status (verified 2026-03-22)**: Fixed in commit `a95b677` (`Fix linter and format issues in the tests`). `music_ferry/recorder.py` now catches `subprocess.TimeoutExpired`, logs a warning, kills ffmpeg, and waits for process exit.
+
 ---
 
 ### 7. `sync_service.py:313-317` — Dead code in `_compute_next_scheduled_time`
@@ -101,6 +113,8 @@ return today_target  # identical — dead branch
 ```
 
 The last two cases return the same value. The intent when `now > today_target` (missed the window today, haven't run yet) is unclear: returning a past time triggers an immediate run, which may be correct but isn't documented. The dead code also masks the logic.
+
+**Status (verified 2026-03-22)**: Fixed in commit `a95b677` (`Fix linter and format issues in the tests`). The final branch now returns `today_target + timedelta(days=1)` instead of the same-day past timestamp.
 
 ---
 
@@ -119,6 +133,8 @@ except Exception as exc:
     logger.warning("Failed to send notification: %s", exc)
 ```
 
+**Status (verified 2026-03-22)**: Fixed in commit `a95b677` (`Fix linter and format issues in the tests`). `music_ferry/notify.py` now catches `requests.RequestException` and logs `logger.warning("Notification failed: %s", exc)`.
+
 ---
 
 ### 9. `youtube/downloader.py:174` — Wrong type annotation
@@ -133,6 +149,8 @@ from collections.abc import Callable
 on_progress: Callable[[int, int, Track], None] | None = None
 ```
 
+**Status (verified 2026-03-22)**: Fixed in commit `a95b677` (`Fix linter and format issues in the tests`). `music_ferry/youtube/downloader.py` now imports `Callable` and uses `Callable[[int, int, Track], None] | None`.
+
 ---
 
 ### 10. `transfer.py:98` — Untyped `config` parameter
@@ -142,6 +160,8 @@ def __init__(self, config, sources: list[str] | None = None, ...):
 ```
 
 Should be `config: Config`. mypy strict mode likely catches this but it's a readability issue.
+
+**Status (verified 2026-03-22)**: Fixed in commit `a95b677` (`Fix linter and format issues in the tests`). `InteractiveTransfer.__init__()` now annotates `config: Config`.
 
 ---
 
@@ -154,6 +174,8 @@ self._browser: Optional[Browser] = None
 
 Inconsistent with the rest of the codebase (which uses `X | None`). Also imports `re` and `time` inside methods instead of at module top.
 
+**Status (verified 2026-03-22)**: Partially fixed in commit `a95b677` (`Fix linter and format issues in the tests`). `Optional[...]` annotations were converted to `X | None`, but `re` and `time` are still imported inside methods, so this item is not fully resolved.
+
 ---
 
 ### 12. `config.py:16-27` — Lazy validation of playlist URLs
@@ -161,6 +183,8 @@ Inconsistent with the rest of the codebase (which uses `X | None`). Also imports
 `PlaylistConfig.playlist_id` raises `ValueError` if the URL is malformed, but this is only triggered when the property is accessed (mid-sync), not at `load_config()` time. A bad URL in config causes a confusing mid-run crash.
 
 The URL → ID extraction should happen eagerly in `load_config()` and stored as a field, or `playlist_id` should be validated as part of config loading.
+
+**Status (verified 2026-03-22)**: Not fixed. `PlaylistConfig.playlist_id` still performs validation lazily, and `load_config()` still constructs `PlaylistConfig` objects without forcing URL validation.
 
 ---
 
@@ -179,6 +203,8 @@ def get_sync_service(app: FastAPI) -> SyncService:
 `id(app)` can be reused after garbage collection. This dict leaks across the process lifetime and complicates test isolation (tests creating new `FastAPI()` instances may get stale services if the old app object is GC'd and a new one happens to get the same `id`).
 
 Prefer storing the service on `app.state` at startup in the lifespan handler.
+
+**Status (verified 2026-03-22)**: Not fixed. `music_ferry/web/services/sync_service.py` still uses the module-level `_sync_services: dict[int, SyncService] = {}` cache keyed by `id(app)`.
 
 ---
 

@@ -2,6 +2,8 @@
 import asyncio
 import json
 import random
+import re
+import time
 from pathlib import Path
 from types import TracebackType
 from typing import Any, cast
@@ -221,8 +223,6 @@ class SpotifyBrowser:
 
         Returns None if not on a track page.
         """
-        import re
-
         url = self._require_page().url
         match = re.search(r"/track/([a-zA-Z0-9]+)", url)
         if match:
@@ -238,8 +238,6 @@ class SpotifyBrowser:
 
         Returns the new track ID or None if timeout reached.
         """
-        import time
-
         start_time = time.time()
         poll_interval = 1.0  # Check every second
 
