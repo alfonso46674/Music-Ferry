@@ -18,6 +18,7 @@ make test          # Run test suite
 make lint          # Ruff linter
 make typecheck     # mypy (strict)
 make format        # black
+black --check .    # Verify formatting without rewriting files
 make check         # lint + typecheck + test
 
 pytest tests/test_<name>.py -v   # Single test file
@@ -45,8 +46,15 @@ music_ferry/
 └── web/              # FastAPI web UI
     ├── app.py        # Application factory + lifespan
     ├── routes/       # HTTP handlers (api, logs, metrics)
-    └── services/     # Business logic (sync, library, headphones)
+    └── services/     # Business logic (sync, library, headphones, scheduler)
 ```
+
+## Testing Notes
+
+- `make check` is the expected pre-merge baseline: lint + mypy + full test suite
+- Web API tests use `httpx.AsyncClient` with `ASGITransport`, not FastAPI `TestClient`
+- Routes that offload blocking work with `run_in_executor()` are often tested by calling the route coroutine directly with a stubbed loop
+- New features or behavior changes are expected to ship with corresponding tests
 
 ## Known Issues / Audit
 

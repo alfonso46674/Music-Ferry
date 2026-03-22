@@ -3,9 +3,16 @@ import asyncio
 import json
 import random
 from pathlib import Path
-from typing import Optional
+from types import TracebackType
+from typing import Any, cast
 
-from playwright.async_api import async_playwright, Browser, Page, BrowserContext
+from playwright.async_api import (
+    Browser,
+    BrowserContext,
+    Page,
+    Playwright,
+    async_playwright,
+)
 
 # Common desktop user agents (Chrome on Linux)
 USER_AGENTS = [
@@ -65,24 +72,34 @@ class SpotifyBrowser:
         self.cookies_dir = cookies_dir
         self.audio_sink = audio_sink
         self.base_url = "https://open.spotify.com"
-        self._playwright = None
-        self._browser: Optional[Browser] = None
-        self._context: Optional[BrowserContext] = None
-        self.page: Optional[Page] = None
+        self._playwright: Playwright | None = None
+        self._browser: Browser | None = None
+        self._context: BrowserContext | None = None
+        self.page: Page | None = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "SpotifyBrowser":
         await self._launch()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         await self._close()
+
+    def _require_page(self) -> Page:
+        if self.page is None:
+            raise RuntimeError("Browser page is not initialized")
+        return self.page
 
     async def _launch(self) -> None:
         self._playwright = await async_playwright().start()
 
         # Select random user agent and viewport for this session
         user_agent = random.choice(USER_AGENTS)
-        viewport = random.choice(VIEWPORTS)
+        viewport = cast(Any, random.choice(VIEWPORTS))
 
         self._browser = await self._playwright.chromium.launch(
             headless=True,
@@ -148,59 +165,65 @@ class SpotifyBrowser:
 
     async def navigate_to_playlist(self, playlist_id: str) -> None:
         url = self._get_playlist_url(playlist_id)
-        await self.page.goto(url, wait_until="networkidle")
+        page = self._require_page()
+        await page.goto(url, wait_until="networkidle")
         await self._random_delay(1000, 3000)
 
     async def play_track(self, track_id: str) -> None:
         url = self._get_track_url(track_id)
-        await self.page.goto(url, wait_until="networkidle")
+        page = self._require_page()
+        await page.goto(url, wait_until="networkidle")
 
         # Random delay before clicking play (like a human looking at the page)
         await self._random_delay(800, 2500)
 
-        play_button = self.page.locator('[data-testid="play-button"]')
+        play_button = page.locator('[data-testid="play-button"]')
         await play_button.wait_for(state="visible", timeout=10000)
         await play_button.click()
 
     async def pause(self) -> None:
         await self._random_delay(300, 800)
-        pause_button = self.page.locator('[data-testid="control-button-pause"]')
+        page = self._require_page()
+        pause_button = page.locator('[data-testid="control-button-pause"]')
         if await pause_button.is_visible():
             await pause_button.click()
 
     async def is_logged_in(self) -> bool:
-        await self.page.goto(self.base_url, wait_until="networkidle")
+        page = self._require_page()
+        await page.goto(self.base_url, wait_until="networkidle")
         await self._random_delay(500, 1500)
-        login_button = self.page.locator('[data-testid="login-button"]')
+        login_button = page.locator('[data-testid="login-button"]')
         return not await login_button.is_visible()
 
     async def play_playlist(self, playlist_id: str) -> None:
         """Navigate to playlist and start playing from the first track."""
         url = self._get_playlist_url(playlist_id)
-        await self.page.goto(url, wait_until="networkidle")
+        page = self._require_page()
+        await page.goto(url, wait_until="networkidle")
 
         # Random delay before clicking play (like a human looking at the page)
         await self._random_delay(1000, 3000)
 
-        play_button = self.page.locator('[data-testid="play-button"]')
+        play_button = page.locator('[data-testid="play-button"]')
         await play_button.wait_for(state="visible", timeout=10000)
         await play_button.click()
 
     async def skip_to_next(self) -> None:
         """Skip to the next track in the current playback."""
         await self._random_delay(300, 800)
-        skip_button = self.page.locator('[data-testid="control-button-skip-forward"]')
+        page = self._require_page()
+        skip_button = page.locator('[data-testid="control-button-skip-forward"]')
         await skip_button.wait_for(state="visible", timeout=5000)
         await skip_button.click()
 
-    def get_current_track_id(self) -> Optional[str]:
+    def get_current_track_id(self) -> str | None:
         """Extract the track ID from the current page URL.
 
         Returns None if not on a track page.
         """
         import re
 
-        url = self.page.url
+        url = self._require_page().url
         match = re.search(r"/track/([a-zA-Z0-9]+)", url)
         if match:
             return match.group(1)
@@ -210,7 +233,7 @@ class SpotifyBrowser:
         self,
         current_track_id: str,
         timeout_seconds: float = 300,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Wait for the track to change from the current one.
 
         Returns the new track ID or None if timeout reached.

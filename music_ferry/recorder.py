@@ -1,7 +1,11 @@
 # music_ferry/recorder.py
+import logging
 import random
 import subprocess
 from pathlib import Path
+from types import TracebackType
+
+logger = logging.getLogger(__name__)
 
 # Generic sink names that look like standard audio devices
 SINK_NAMES = [
@@ -28,7 +32,7 @@ class AudioRecorder:
         self.sink_name = sink_name or random.choice(SINK_NAMES)
         self._sink_description = random.choice(SINK_DESCRIPTIONS)
         self._module_id: int | None = None
-        self._ffmpeg_process: subprocess.Popen | None = None
+        self._ffmpeg_process: subprocess.Popen[bytes] | None = None
 
     def create_virtual_sink(self) -> None:
         result = subprocess.run(
@@ -86,13 +90,25 @@ class AudioRecorder:
         if self._ffmpeg_process is not None:
             if self._ffmpeg_process.poll() is None:
                 self._ffmpeg_process.terminate()
-                self._ffmpeg_process.wait(timeout=5)
+                try:
+                    self._ffmpeg_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    logger.warning(
+                        "ffmpeg did not terminate within timeout; killing process"
+                    )
+                    self._ffmpeg_process.kill()
+                    self._ffmpeg_process.wait()
             self._ffmpeg_process = None
 
-    def __enter__(self):
+    def __enter__(self) -> "AudioRecorder":
         self.create_virtual_sink()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         self.stop_recording()
         self.destroy_virtual_sink()

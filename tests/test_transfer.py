@@ -1,11 +1,11 @@
 # tests/test_transfer.py
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
-from music_ferry.transfer import TransferManager, InteractiveTransfer, TransferStatus
 from music_ferry.library import Library
+from music_ferry.transfer import InteractiveTransfer, TransferManager
 
 
 class TestTransferManager:

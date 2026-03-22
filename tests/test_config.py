@@ -1,11 +1,10 @@
 # tests/test_config.py
-import tempfile
 from pathlib import Path
 
 import pytest
 import yaml
 
-from music_ferry.config import Config, load_config
+from music_ferry.config import load_config
 
 
 class TestConfig:

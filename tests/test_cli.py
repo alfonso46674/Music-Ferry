@@ -1,6 +1,6 @@
 # tests/test_cli.py
+
 import pytest
-from pathlib import Path
 
 from music_ferry.cli import parse_args
 

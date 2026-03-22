@@ -1,21 +1,21 @@
 # tests/test_orchestrator.py
 from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from music_ferry.orchestrator import Orchestrator
 from music_ferry.config import (
-    Config,
-    SpotifyConfig,
-    YouTubeConfig,
-    PlaylistConfig,
     AudioConfig,
-    PathsConfig,
-    NotificationsConfig,
     BehaviorConfig,
+    Config,
+    NotificationsConfig,
+    PathsConfig,
+    PlaylistConfig,
+    SpotifyConfig,
     TransferConfig,
+    YouTubeConfig,
 )
+from music_ferry.orchestrator import Orchestrator
 from music_ferry.spotify_api import Track
 
 
@@ -294,7 +294,7 @@ class TestPlaylistModeRecording:
         with patch.object(
             orchestrator, "_record_current_track", new_callable=AsyncMock
         ) as mock_record:
-            recorded = await orchestrator._record_playlist_mode(
+            await orchestrator._record_playlist_mode(
                 playlist_id="playlist1",
                 all_tracks=all_tracks,
                 new_track_ids=new_track_ids,

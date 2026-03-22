@@ -67,7 +67,7 @@ def _extract_headphones_mount_from_yaml(config_path: Path) -> Path | None:
             if not value:
                 return None
             if (
-                (value.startswith("\"") and value.endswith("\""))
+                (value.startswith('"') and value.endswith('"'))
                 or (value.startswith("'") and value.endswith("'"))
             ) and len(value) >= 2:
                 value = value[1:-1]
@@ -162,9 +162,7 @@ def prepare_unplug(mount_path: Path) -> dict[str, Any]:
         "ok": False,
         "synced": True,
         "unmounted": False,
-        "message": (
-            f"Could not unmount {mount_path}: {umount_err or 'unknown error'}"
-        ),
+        "message": (f"Could not unmount {mount_path}: {umount_err or 'unknown error'}"),
     }
 
 

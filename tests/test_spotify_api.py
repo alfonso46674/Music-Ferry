@@ -1,8 +1,6 @@
 # tests/test_spotify_api.py
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from music_ferry.spotify_api import SpotifyAPI, Track
 
 

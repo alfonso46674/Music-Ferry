@@ -1,5 +1,4 @@
 # tests/test_cli_sources.py
-import pytest
 from music_ferry.cli import parse_args
 
 

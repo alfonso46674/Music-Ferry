@@ -1,11 +1,8 @@
 # tests/test_recorder.py
 from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
-import asyncio
+from unittest.mock import MagicMock, patch
 
-import pytest
-
-from music_ferry.recorder import AudioRecorder, SINK_NAMES
+from music_ferry.recorder import SINK_NAMES, AudioRecorder
 
 
 class TestAudioRecorder:

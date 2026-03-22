@@ -1,14 +1,11 @@
 # tests/test_tagger.py
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-import tempfile
+from unittest.mock import MagicMock, patch
 
-import pytest
 from mutagen.mp3 import MP3
-from mutagen.id3 import ID3
 
-from music_ferry.tagger import tag_mp3
 from music_ferry.spotify_api import Track
+from music_ferry.tagger import tag_mp3
 
 
 def create_valid_mp3(path: Path) -> None:

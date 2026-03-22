@@ -1,9 +1,9 @@
 # music_ferry/config.py
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-import re
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 
 @dataclass
@@ -57,7 +57,7 @@ class PathsConfig:
     headphones_mount: Path
     headphones_music_folder: str = "Music"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if isinstance(self.music_dir, str):
             self.music_dir = Path(self.music_dir).expanduser()
         if isinstance(self.headphones_mount, str):

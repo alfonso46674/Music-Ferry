@@ -7,6 +7,7 @@ Guidance for AI agents working in this repository.
 - **Language**: Python 3.11, strict mypy, ruff + black formatting
 - **Test runner**: `pytest` (asyncio_mode = auto); run `make test`
 - **Lint/type**: `make lint` (ruff) and `make typecheck` (mypy --strict)
+- **Web API tests**: prefer `httpx.AsyncClient` + `ASGITransport`; avoid FastAPI `TestClient` in this repo
 - **Deployment**: Docker Compose (`docker compose --env-file .env.docker up -d --build`)
 - See [`CLAUDE.md`](CLAUDE.md) for architecture and key paths
 - For safe-unplug helper hardening and Docker/UFW gateway notes, see [`docs/web-ui.md`](docs/web-ui.md)
@@ -33,6 +34,8 @@ See [`coding-conventions.md`](coding-conventions.md) for full conventions. Key r
 - Tests live in `tests/`; fixtures in `tests/fixtures/`
 - Use `pytest-asyncio` for async tests — no manual `asyncio.run()` in tests
 - Mock filesystem/subprocess/network in unit tests; `tests/test_integration.py` is the only integration test
+- New features and behavior changes must include or update the relevant tests before the change is considered done
+- For web API coverage, prefer `httpx.AsyncClient` with `ASGITransport`; for executor-backed routes, it is acceptable to call the route coroutine directly and stub the running loop
 - Match existing test style (see `tests/test_orchestrator.py` for orchestrator patterns)
 
 ## Boundaries
@@ -48,3 +51,4 @@ See [`coding-conventions.md`](coding-conventions.md) for full conventions. Key r
 - Forgetting `--spotify`/`--youtube` flags must flow through `_resolve_sources()` into `orchestrator.run()`
 - Not handling `subprocess.TimeoutExpired` after calling `process.wait(timeout=...)`
 - Using module-level global dicts for per-request/per-app state (use `app.state` or pass explicitly)
+- Using FastAPI `TestClient` for new web tests in this repo — prefer `httpx.AsyncClient` or direct route calls for executor-backed endpoints

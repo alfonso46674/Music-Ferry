@@ -3,13 +3,13 @@ import asyncio
 import logging
 from pathlib import Path
 
+from music_ferry.browser import SpotifyBrowser
 from music_ferry.config import Config, PlaylistConfig
 from music_ferry.library import Library
-from music_ferry.spotify_api import SpotifyAPI, Track
-from music_ferry.browser import SpotifyBrowser
+from music_ferry.notify import Notifier, PlaylistResult, SyncResult
 from music_ferry.recorder import AudioRecorder
+from music_ferry.spotify_api import SpotifyAPI, Track
 from music_ferry.tagger import tag_mp3
-from music_ferry.notify import Notifier, SyncResult, PlaylistResult
 from music_ferry.youtube import YouTubeDownloader
 
 logger = logging.getLogger(__name__)
@@ -226,7 +226,7 @@ class Orchestrator:
 
                         for playlist in self.config.spotify.playlists:
                             new_tracks = playlists_with_new_tracks.get(
-                                playlist.playlist_id
+                                playlist.playlist_id, []
                             )
                             all_tracks = all_playlist_tracks.get(
                                 playlist.playlist_id, []

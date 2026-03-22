@@ -139,6 +139,11 @@ result = asyncio.run(orchestrator.run(sync_spotify=sync_spotify, sync_youtube=sy
 - Long-running sync → `asyncio.to_thread()` (used in `sync_service.py`)
 - Never call `asyncio.run()` on the web event loop — only in worker threads
 
+### Web tests
+- Prefer `httpx.AsyncClient` with `ASGITransport` for API tests in this repo
+- Avoid FastAPI `TestClient` here; it is not the stable path in this environment
+- For routes that delegate to `run_in_executor()`, test the handler directly and stub `asyncio.get_running_loop()` when needed
+
 ### Background tasks
 ```python
 # Correct — fire and forget from async context
@@ -214,7 +219,16 @@ raise RuntimeError(f"Mount not found: {mount}")
 2. Add handler in the appropriate `web/routes/*.py` file — keep it to: parse → call service → return
 3. Business logic goes in `web/services/` not in the route
 4. Return `{"error": "..."}` for expected failures; raise `HTTPException` only for truly unexpected ones
-5. Add tests in `tests/test_web_api.py` using the HTTPX test client
+5. Add or update tests in `tests/test_web_api.py`
+6. Use `httpx.AsyncClient` + `ASGITransport` for HTTP-level tests; for executor-backed routes, direct handler tests are acceptable
+
+---
+
+## Testing Expectations
+
+- Any new feature must include tests that cover the new behavior
+- Behavioral changes must update existing tests when expectations change
+- Bug fixes should add a regression test whenever practical
 
 ---
 

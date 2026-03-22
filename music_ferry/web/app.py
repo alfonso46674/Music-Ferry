@@ -23,7 +23,7 @@ def _get_static_path() -> Path | None:
 
     try:
         static_path = importlib.resources.files("music_ferry.web") / "static"
-        if static_path.is_dir():  # type: ignore[union-attr]
+        if static_path.is_dir():
             return Path(str(static_path))
     except (TypeError, FileNotFoundError):
         pass

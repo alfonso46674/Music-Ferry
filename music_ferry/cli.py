@@ -2,12 +2,12 @@
 import argparse
 import asyncio
 import logging
-from logging.handlers import RotatingFileHandler
 import sys
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from music_ferry import __version__
-from music_ferry.config import load_config
+from music_ferry.config import Config, load_config
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -19,7 +19,7 @@ def setup_logging(verbose: bool = False) -> None:
     )
 
 
-def configure_file_logging(config, verbose: bool = False) -> None:
+def configure_file_logging(config: Config, verbose: bool = False) -> None:
     log_dir = config.paths.music_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "sync.log"
@@ -58,7 +58,7 @@ def _add_source_flags(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _resolve_sources(args: argparse.Namespace, config) -> tuple[bool, bool]:
+def _resolve_sources(args: argparse.Namespace, config: Config) -> tuple[bool, bool]:
     """Resolve which sources to process based on flags and config.
     Returns (sync_spotify, sync_youtube) booleans.
     """
@@ -141,7 +141,7 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def cmd_sync(config, verbose: bool) -> int:
+def cmd_sync(config: Config, verbose: bool) -> int:
     """Run sync command - download new tracks, cleanup orphans."""
     from music_ferry.orchestrator import Orchestrator
 
@@ -170,7 +170,7 @@ def cmd_sync(config, verbose: bool) -> int:
         return 1
 
 
-def cmd_transfer(config, verbose: bool, auto: bool) -> int:
+def cmd_transfer(config: Config, verbose: bool, auto: bool) -> int:
     """Run transfer command - interactive headphones transfer."""
     from music_ferry.transfer import InteractiveTransfer
 
@@ -187,7 +187,7 @@ def cmd_transfer(config, verbose: bool, auto: bool) -> int:
         return 1
 
 
-def cmd_serve(config, host: str, port: int, reload: bool) -> int:
+def cmd_serve(config: Config, host: str, port: int, reload: bool) -> int:
     """Run serve command - start the web UI server."""
     import uvicorn
 

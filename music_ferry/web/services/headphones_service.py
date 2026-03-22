@@ -465,9 +465,13 @@ class HeadphonesService:
         music_readable = music_exists and os.access(music_path, os.R_OK | os.X_OK)
         music_writable = music_exists and os.access(music_path, os.W_OK | os.X_OK)
 
-        accessible = mount_exists and mount_readable and (
-            (music_exists and music_readable and music_writable)
-            or (not music_exists and mount_writable)
+        accessible = (
+            mount_exists
+            and mount_readable
+            and (
+                (music_exists and music_readable and music_writable)
+                or (not music_exists and mount_writable)
+            )
         )
 
         if not mount_exists:

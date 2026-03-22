@@ -1,9 +1,7 @@
 # tests/test_notify.py
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-import pytest
-
-from music_ferry.notify import Notifier, SyncResult, PlaylistResult
+from music_ferry.notify import Notifier, PlaylistResult, SyncResult
 
 
 class TestNotifier:

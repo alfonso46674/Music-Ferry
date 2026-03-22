@@ -1,7 +1,8 @@
 # tests/test_orchestrator_sources.py
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from music_ferry.orchestrator import Orchestrator
 
@@ -42,7 +43,7 @@ class TestOrchestratorMultiSource:
         )
 
     def test_orchestrator_creates_source_directories(self, mock_config, tmp_path):
-        orchestrator = Orchestrator(mock_config)
+        Orchestrator(mock_config)
 
         assert (tmp_path / "spotify" / "music").exists()
         assert (tmp_path / "youtube" / "music").exists()

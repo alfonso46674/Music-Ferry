@@ -2,9 +2,7 @@
 import json
 from pathlib import Path
 
-import pytest
-
-from music_ferry.library import LibraryTrack, LibraryPlaylist, Library
+from music_ferry.library import Library, LibraryPlaylist, LibraryTrack
 
 
 class TestLibraryTrack:
