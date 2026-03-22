@@ -213,15 +213,23 @@ Prefer storing the service on `app.state` at startup in the lifespan handler.
 ### Library has no concurrency protection
 `Library` is a plain in-memory dict + JSON file with no locking. The web UI's `LibraryService` reads the library while `SyncService` may be writing it from a worker thread. Currently safe because each sync creates a fresh `Orchestrator` (and fresh `Library`), and only one sync runs at a time (enforced by `_lock`). But this is a fragile invariant — document it or add a file lock.
 
+**Status (verified 2026-03-22)**: Still applicable. Atomic saves were fixed in `98cd6b2`, but there is still no file/process locking around concurrent readers and writers; safety still depends on the current single-sync invariant and separate `Library` instances.
+
 ### `Track` dataclass is shared between Spotify and YouTube
 `spotify_api.Track` is reused for YouTube tracks (with `source="youtube"`). The `album_art_url` field is Spotify-specific and `duration_ms` semantics differ slightly. This is workable but could cause confusion when adding a third source. Consider a `BaseTrack` protocol or a union type if a third source is ever added.
+
+**Status (verified 2026-03-22)**: Still applicable. YouTube download and metadata paths continue to build `spotify_api.Track` objects with `source="youtube"`.
 
 ### Config loading is verbose but correct
 `load_config()` manually maps YAML keys to dataclasses. This is readable and avoids hidden magic, but adding new config fields requires changes in 3 places (dataclass, load_config, config.yaml example). Consider documenting this pattern explicitly in `coding-conventions.md`.
 
+**Status (verified 2026-03-22)**: Still applicable. The loader remains explicit/manual, though `d566206` added eager playlist URL validation.
+
 ---
 
 ## Summary
+
+Original audit count:
 
 | Severity | Count |
 |---|---|
@@ -229,9 +237,6 @@ Prefer storing the service on `app.state` at startup in the lifespan handler.
 | Medium | 3 |
 | Code quality | 6 |
 
-Recommended fix order:
-1. `tagger.py` ID3 bug (causes silent data loss)
-2. `cli.py` source flags bug (documented feature doesn't work)
-3. `library.py` atomic writes (data integrity)
-4. `orchestrator.py` empty playlist_id (library pollution)
-5. `recorder.py` silent sink failure + TimeoutExpired
+Current status (verified 2026-03-22):
+- All 13 bug/code-quality findings listed above are fixed.
+- All 3 architecture observations above still apply and remain follow-up design concerns rather than fixed defects.
