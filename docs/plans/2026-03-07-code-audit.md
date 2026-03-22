@@ -204,7 +204,7 @@ def get_sync_service(app: FastAPI) -> SyncService:
 
 Prefer storing the service on `app.state` at startup in the lifespan handler.
 
-**Status (verified 2026-03-22)**: Not fixed. `music_ferry/web/services/sync_service.py` still uses the module-level `_sync_services: dict[int, SyncService] = {}` cache keyed by `id(app)`.
+**Status (verified 2026-03-22)**: Fixed in commit `49df200` (`fix(web): store sync service on app state`). `get_sync_service()` now caches the service on `app.state.sync_service` instead of using a module-level dict keyed by `id(app)`.
 
 ---
 
