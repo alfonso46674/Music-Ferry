@@ -51,7 +51,7 @@ Both commands always sync/transfer all sources regardless of `--spotify`/`--yout
 
 **Impact**: Permanent library corruption on unexpected process termination.
 
-**Status (verified 2026-03-22)**: Not fixed. `Library.save()` in `music_ferry/library.py` still writes directly to `library.json` with `open(self.db_path, "w")` and does not use a temp file plus `replace()`.
+**Status (verified 2026-03-22)**: Fixed in commit `98cd6b2` (`fix(library): save library.json atomically`). `Library.save()` now writes to a temp file in the target directory, flushes and `fsync()`s it, then atomically replaces `library.json`.
 
 ---
 
