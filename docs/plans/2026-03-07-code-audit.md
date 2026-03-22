@@ -66,7 +66,7 @@ This adds `""` to `track.playlists`. While `_update_playlist_membership()` later
 
 **Impact**: The orphan detection (`is_orphaned = len(playlists) == 0`) still works (not zero), but the library is polluted with garbage entries, and any code iterating `track.playlists` will encounter the empty string.
 
-**Status (verified 2026-03-22)**: Not fixed. `music_ferry/orchestrator.py` still calls `self.spotify_library.add_track(..., "", ...)` in both `_record_track()` and `_record_current_track()`.
+**Status (verified 2026-03-22)**: Fixed in commit `05b8f21` (`fix(orchestrator): persist spotify playlist ids correctly`). The Spotify recording helpers now receive the real `playlist_id` and store it directly instead of adding an empty string placeholder.
 
 ---
 
