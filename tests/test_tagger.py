@@ -2,6 +2,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from mutagen.id3 import ID3NoHeaderError
 from mutagen.mp3 import MP3
 
 from music_ferry.spotify_api import Track
@@ -24,7 +25,42 @@ def create_valid_mp3(path: Path) -> None:
             f.write(single_frame)
 
 
+class FakeTags(dict[str, object]):
+    def __init__(self) -> None:
+        super().__init__()
+        self.save = MagicMock()
+
+
 class TestTagger:
+    @patch("music_ferry.tagger.ID3")
+    def test_tag_mp3_creates_new_id3_tags_when_missing(self, mock_id3, tmp_path: Path):
+        mp3_path = tmp_path / "test.mp3"
+        create_valid_mp3(mp3_path)
+
+        created_tags = FakeTags()
+        mock_id3.side_effect = [
+            ID3NoHeaderError("missing header"),
+            created_tags,
+        ]
+
+        track = Track(
+            id="abc123",
+            name="Test Song",
+            artists=["Artist 1", "Artist 2"],
+            album="Test Album",
+            duration_ms=180000,
+            album_art_url=None,
+        )
+
+        tag_mp3(mp3_path, track)
+
+        assert mock_id3.call_args_list[0].args == (mp3_path,)
+        assert mock_id3.call_args_list[1].args == ()
+        assert created_tags["TIT2"].text[0] == "Test Song"
+        assert created_tags["TPE1"].text[0] == "Artist 1, Artist 2"
+        assert created_tags["TALB"].text[0] == "Test Album"
+        created_tags.save.assert_called_once_with(mp3_path)
+
     def test_tag_mp3_basic(self, tmp_path: Path):
         mp3_path = tmp_path / "test.mp3"
         create_valid_mp3(mp3_path)
