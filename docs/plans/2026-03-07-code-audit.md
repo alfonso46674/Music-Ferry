@@ -41,7 +41,7 @@ Both commands always sync/transfer all sources regardless of `--spotify`/`--yout
 
 **Impact**: Documented CLI flags are completely non-functional.
 
-**Status (verified 2026-03-22)**: Not fixed. `main()` still calls `cmd_sync(config, args.verbose)` and `cmd_transfer(config, args.verbose, args.auto)` without routing through `_resolve_sources()` or passing source selection onward.
+**Status (verified 2026-03-22)**: Fixed in commit `6800313` (`fix(cli): honor selected sync and transfer sources`). `main()` now resolves the CLI source flags and passes them through to both `Orchestrator.run()` and `InteractiveTransfer`.
 
 ---
 
