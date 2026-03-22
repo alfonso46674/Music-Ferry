@@ -16,7 +16,12 @@ from music_ferry.config import (
     TransferConfig,
     YouTubeConfig,
 )
-from music_ferry.web.services.sync_service import JobStatus, SyncJob, SyncService
+from music_ferry.web.services.sync_service import (
+    JobStatus,
+    SyncJob,
+    SyncService,
+    get_sync_service,
+)
 
 
 def make_config(tmp_path: Path) -> Config:
@@ -49,6 +54,16 @@ def make_service(tmp_path: Path) -> SyncService:
 
 
 class TestSyncServiceSchedule:
+    def test_get_sync_service_stores_instance_on_app_state(self, tmp_path: Path):
+        app = FastAPI()
+        app.state.config = make_config(tmp_path)
+
+        service = get_sync_service(app)
+        same_service = get_sync_service(app)
+
+        assert service is same_service
+        assert app.state.sync_service is service
+
     def test_schedule_defaults(self, tmp_path: Path):
         service = make_service(tmp_path)
 

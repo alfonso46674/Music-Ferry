@@ -428,14 +428,12 @@ class SyncService:
             "error": job.error,
         }
 
-
-# Singleton instance per app
-_sync_services: dict[int, SyncService] = {}
-
-
 def get_sync_service(app: FastAPI) -> SyncService:
     """Get or create the SyncService for an app."""
-    app_id = id(app)
-    if app_id not in _sync_services:
-        _sync_services[app_id] = SyncService(app)
-    return _sync_services[app_id]
+    existing = getattr(app.state, "sync_service", None)
+    if isinstance(existing, SyncService):
+        return existing
+
+    service = SyncService(app)
+    app.state.sync_service = service
+    return service

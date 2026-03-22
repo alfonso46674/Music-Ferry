@@ -53,7 +53,6 @@ def mock_config(tmp_path: Path) -> Config:
 async def client(mock_config: Config) -> AsyncIterator[AsyncClient]:
     """Create a test client with mock config."""
     from music_ferry.web import create_app
-    from music_ferry.web.services import sync_service
 
     app = create_app(mock_config)
     transport = ASGITransport(app=app)
@@ -62,7 +61,6 @@ async def client(mock_config: Config) -> AsyncIterator[AsyncClient]:
         base_url="http://testserver",
     ) as test_client:
         yield test_client
-    sync_service._sync_services.pop(id(app), None)
 
 
 class TestHealthEndpoint:
