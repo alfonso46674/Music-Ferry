@@ -9,6 +9,7 @@ from urllib.error import HTTPError
 import yt_dlp
 from yt_dlp.utils import DownloadError
 
+from music_ferry.filenames import DEFAULT_FILENAME_MAX_CHARS, build_track_filename
 from music_ferry.spotify_api import Track
 
 logger = logging.getLogger(__name__)
@@ -22,12 +23,14 @@ class YouTubeDownloader:
         max_retries: int = 1,
         retry_delay_seconds: float = 5.0,
         cookies_file: Path | None = None,
+        filename_max_chars: int = DEFAULT_FILENAME_MAX_CHARS,
     ):
         self.output_dir = output_dir
         self.bitrate = bitrate
         self.max_retries = max_retries
         self.retry_delay_seconds = retry_delay_seconds
         self.cookies_file = cookies_file.expanduser() if cookies_file else None
+        self.filename_max_chars = filename_max_chars
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def get_playlist_tracks(self, playlist_url: str, playlist_name: str) -> list[Track]:
@@ -97,8 +100,11 @@ class YouTubeDownloader:
 
         Returns path to the downloaded file.
         """
-        output_path = self.output_dir / f"{track.id}.mp3"
-        output_template = str(self.output_dir / f"{track.id}.%(ext)s")
+        output_path = self.output_dir / build_track_filename(
+            track,
+            max_chars=self.filename_max_chars,
+        )
+        output_template = str(output_path.with_suffix(".%(ext)s"))
 
         ydl_opts: dict[str, object] = {
             "format": "bestaudio[ext=m4a]/bestaudio/best",

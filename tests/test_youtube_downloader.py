@@ -78,7 +78,11 @@ class TestYouTubeDownloader:
         result = downloader.download_track(track)
 
         mock_ydl.download.assert_called_once()
-        assert result == downloader.output_dir / "dQw4w9WgXcQ.mp3"
+        ydl_opts = mock_ydl_class.call_args[0][0]
+        assert ydl_opts["outtmpl"] == str(
+            downloader.output_dir / "Rick Astley - Never Gonna Give You Up.%(ext)s"
+        )
+        assert result == downloader.output_dir / "Rick Astley - Never Gonna Give You Up.mp3"
 
     @patch("music_ferry.youtube.downloader.yt_dlp.YoutubeDL")
     def test_download_track_passes_cookiefile(self, mock_ydl_class, tmp_path: Path):

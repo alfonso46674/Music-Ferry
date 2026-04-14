@@ -216,6 +216,51 @@ class TestOrchestrator:
         assert "playlist1" not in track2.playlists
         assert track2.is_orphaned
 
+    @pytest.mark.asyncio
+    @patch("music_ferry.orchestrator.YouTubeDownloader")
+    async def test_sync_youtube_stores_real_downloaded_filename(
+        self,
+        mock_downloader_class,
+        sample_config: Config,
+    ):
+        sample_config.youtube = YouTubeConfig(
+            enabled=True,
+            playlists=[
+                PlaylistConfig(
+                    name="YT Playlist",
+                    url="https://www.youtube.com/playlist?list=PLtest",
+                )
+            ],
+        )
+        orchestrator = Orchestrator(sample_config)
+        track = Track(
+            id="yt123",
+            name="Song/With: Unsafe?",
+            artists=["Channel|Name"],
+            album="YT Playlist",
+            duration_ms=180000,
+            album_art_url=None,
+            source="youtube",
+        )
+        output_path = orchestrator.youtube_music_dir / "Channel Name - Song With Unsafe.mp3"
+
+        mock_downloader = MagicMock()
+        mock_downloader.get_playlist_tracks.return_value = [track]
+
+        def download_tracks(tracks):
+            output_path.write_bytes(b"fake mp3")
+            return tracks, []
+
+        mock_downloader.download_tracks.side_effect = download_tracks
+        mock_downloader_class.return_value = mock_downloader
+
+        await orchestrator._sync_youtube()
+
+        library_track = orchestrator.youtube_library.get_track("yt123")
+        assert library_track is not None
+        assert library_track.filename == "Channel Name - Song With Unsafe.mp3"
+        assert library_track.size_bytes == 8
+
 
 class TestPlaybackModeSelection:
     def test_playlist_mode_when_mostly_new(self):
@@ -273,7 +318,7 @@ class TestPlaylistModeRecording:
             album_art_url=None,
         )
 
-        output_path = orchestrator.spotify_music_dir / "track1.mp3"
+        output_path = orchestrator.spotify_music_dir / "Artist - Song 1.mp3"
         output_path.write_bytes(b"fake mp3")
 
         mock_browser = AsyncMock()
@@ -288,7 +333,7 @@ class TestPlaylistModeRecording:
 
         orchestrator.spotify_library.add_track.assert_called_once_with(
             "track1",
-            "track1.mp3",
+            "Artist - Song 1.mp3",
             "Song 1",
             "Artist",
             "playlist1",

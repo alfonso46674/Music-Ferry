@@ -52,10 +52,67 @@ class TestConfig:
         assert len(config.spotify.playlists) == 1
         assert config.spotify.playlists[0].name == "Test Playlist"
         assert config.audio.bitrate == 192
+        assert config.audio.filename_max_chars == 100
         assert config.paths.music_dir == Path.home() / ".music-ferry" / "music"
         assert config.notifications.ntfy_topic == "test-topic"
         assert config.behavior.skip_existing is True
         assert config.transfer.reserve_free_gb == 0.0
+
+    def test_load_config_reads_filename_max_chars(self, tmp_path: Path):
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            yaml.dump(
+                {
+                    "spotify": {
+                        "client_id": "test_id",
+                        "client_secret": "test_secret",
+                        "username": "test_user",
+                        "playlists": [],
+                    },
+                    "audio": {
+                        "bitrate": 192,
+                        "format": "mp3",
+                        "filename_max_chars": 64,
+                    },
+                    "paths": {
+                        "music_dir": "~/.music-ferry/music",
+                        "headphones_mount": "/media/user/HEADPHONES",
+                        "headphones_music_folder": "Music",
+                    },
+                    "notifications": {
+                        "ntfy_topic": "test-topic",
+                        "ntfy_server": "https://ntfy.sh",
+                    },
+                    "behavior": {
+                        "skip_existing": True,
+                        "trim_silence": True,
+                    },
+                }
+            )
+        )
+
+        config = load_config(config_file)
+
+        assert config.audio.filename_max_chars == 64
+
+    def test_load_config_rejects_too_short_filename_max_chars(self, tmp_path: Path):
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            yaml.dump(
+                {
+                    "spotify": {
+                        "client_id": "test_id",
+                        "client_secret": "test_secret",
+                        "username": "test_user",
+                        "playlists": [],
+                    },
+                    "audio": {"filename_max_chars": 4},
+                }
+            )
+        )
+
+        with pytest.raises(ValueError, match="filename_max_chars"):
+            load_config(config_file)
 
     def test_load_config_missing_required_field(self, tmp_path: Path):
         config_file = tmp_path / "config.yaml"

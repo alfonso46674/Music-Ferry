@@ -6,6 +6,7 @@ from pathlib import Path
 
 from music_ferry.browser import SpotifyBrowser
 from music_ferry.config import Config, PlaylistConfig
+from music_ferry.filenames import build_track_filename
 from music_ferry.library import Library
 from music_ferry.metrics.collectors import record_sync_complete
 from music_ferry.notify import Notifier, PlaylistResult, SyncResult
@@ -329,6 +330,7 @@ class Orchestrator:
         downloader = YouTubeDownloader(
             output_dir=self.youtube_music_dir,
             bitrate=self.config.audio.bitrate,
+            filename_max_chars=self.config.audio.filename_max_chars,
             max_retries=self.config.youtube.retry_count,
             retry_delay_seconds=self.config.youtube.retry_delay_seconds,
             cookies_file=getattr(self.config.youtube, "cookies_file", None),
@@ -359,13 +361,17 @@ class Orchestrator:
 
                     # Add downloaded tracks to library
                     for track in downloaded_tracks:
-                        output_path = self.youtube_music_dir / f"{track.id}.mp3"
+                        filename = build_track_filename(
+                            track,
+                            max_chars=self.config.audio.filename_max_chars,
+                        )
+                        output_path = self.youtube_music_dir / filename
                         size_bytes = (
                             output_path.stat().st_size if output_path.exists() else None
                         )
                         self.youtube_library.add_track(
                             track.id,
-                            f"{track.id}.mp3",
+                            filename,
                             track.name,
                             track.artist_string,
                             playlist.playlist_id,
@@ -468,7 +474,11 @@ class Orchestrator:
         browser: SpotifyBrowser,
         recorder: AudioRecorder,
     ) -> None:
-        output_path = self.spotify_music_dir / f"{track.id}.mp3"
+        filename = build_track_filename(
+            track,
+            max_chars=self.config.audio.filename_max_chars,
+        )
+        output_path = self.spotify_music_dir / filename
 
         logger.info(f"Recording: {track.name} by {track.artist_string}")
 
@@ -486,7 +496,7 @@ class Orchestrator:
         size_bytes = output_path.stat().st_size if output_path.exists() else None
         self.spotify_library.add_track(
             track.id,
-            f"{track.id}.mp3",
+            filename,
             track.name,
             track.artist_string,
             playlist_id,
@@ -564,7 +574,11 @@ class Orchestrator:
         recorder: AudioRecorder,
     ) -> None:
         """Record the currently playing track."""
-        output_path = self.spotify_music_dir / f"{track.id}.mp3"
+        filename = build_track_filename(
+            track,
+            max_chars=self.config.audio.filename_max_chars,
+        )
+        output_path = self.spotify_music_dir / filename
 
         recorder.start_recording(output_path)
         await asyncio.sleep(track.duration_seconds + 2)
@@ -574,7 +588,7 @@ class Orchestrator:
         size_bytes = output_path.stat().st_size if output_path.exists() else None
         self.spotify_library.add_track(
             track.id,
-            f"{track.id}.mp3",
+            filename,
             track.name,
             track.artist_string,
             playlist_id,

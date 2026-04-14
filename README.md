@@ -104,6 +104,7 @@ youtube:
 audio:
   bitrate: 192  # kbps
   format: "mp3"
+  filename_max_chars: 100
 
 paths:
   music_dir: "~/.music-ferry"

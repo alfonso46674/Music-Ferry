@@ -3,7 +3,9 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import yaml  # type: ignore[import-untyped]
+import yaml  # type: ignore[import-untyped, unused-ignore]
+
+from music_ferry.filenames import DEFAULT_FILENAME_MAX_CHARS
 
 
 @dataclass
@@ -49,6 +51,7 @@ class YouTubeConfig:
 class AudioConfig:
     bitrate: int = 192
     format: str = "mp3"
+    filename_max_chars: int = DEFAULT_FILENAME_MAX_CHARS
 
 
 @dataclass
@@ -102,6 +105,14 @@ def _validate_playlists(playlists: list[PlaylistConfig], source_name: str) -> No
             raise ValueError(
                 f"Invalid {source_name} playlist URL for '{playlist.name}': {playlist.url}"
             ) from exc
+
+
+def _validate_filename_max_chars(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("audio.filename_max_chars must be an integer")
+    if value <= len(".mp3"):
+        raise ValueError("audio.filename_max_chars must leave room for .mp3")
+    return value
 
 
 def load_config(config_path: Path) -> Config:
@@ -172,6 +183,9 @@ def load_config(config_path: Path) -> Config:
     audio = AudioConfig(
         bitrate=audio_data.get("bitrate", 192),
         format=audio_data.get("format", "mp3"),
+        filename_max_chars=_validate_filename_max_chars(
+            audio_data.get("filename_max_chars", DEFAULT_FILENAME_MAX_CHARS)
+        ),
     )
 
     paths_data = data.get("paths", {})
