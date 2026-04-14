@@ -1,11 +1,13 @@
 # music_ferry/orchestrator.py
 import asyncio
 import logging
+import time
 from pathlib import Path
 
 from music_ferry.browser import SpotifyBrowser
 from music_ferry.config import Config, PlaylistConfig
 from music_ferry.library import Library
+from music_ferry.metrics.collectors import record_sync_complete
 from music_ferry.notify import Notifier, PlaylistResult, SyncResult
 from music_ferry.recorder import AudioRecorder
 from music_ferry.spotify_api import SpotifyAPI, Track
@@ -69,6 +71,21 @@ class Orchestrator:
         if ratio >= PLAYLIST_MODE_THRESHOLD:
             return "playlist"
         return "individual"
+
+    @staticmethod
+    def _record_source_metrics(
+        source: str,
+        started_at: float,
+        results: list[PlaylistResult],
+        success: bool,
+    ) -> None:
+        """Record Prometheus metrics for a source sync run."""
+        record_sync_complete(
+            source=source,
+            success=success,
+            tracks=sum(result.tracks_synced for result in results),
+            duration_seconds=time.perf_counter() - started_at,
+        )
 
     def _cleanup_orphaned_tracks(self, library: Library, music_dir: Path) -> int:
         """Delete orphaned tracks from disk and library. Returns count deleted."""
@@ -152,12 +169,40 @@ class Orchestrator:
 
         try:
             if sync_spotify and self.config.spotify.enabled:
-                spotify_results = await self._sync_spotify()
-                playlist_results.extend(spotify_results)
+                spotify_started_at = time.perf_counter()
+                spotify_results: list[PlaylistResult] = []
+                spotify_success = False
+                try:
+                    spotify_results = await self._sync_spotify()
+                    spotify_success = all(
+                        result.error is None for result in spotify_results
+                    )
+                    playlist_results.extend(spotify_results)
+                finally:
+                    self._record_source_metrics(
+                        "spotify",
+                        spotify_started_at,
+                        spotify_results,
+                        spotify_success,
+                    )
 
             if sync_youtube and self.config.youtube.enabled:
-                youtube_results = await self._sync_youtube()
-                playlist_results.extend(youtube_results)
+                youtube_started_at = time.perf_counter()
+                youtube_results: list[PlaylistResult] = []
+                youtube_success = False
+                try:
+                    youtube_results = await self._sync_youtube()
+                    youtube_success = all(
+                        result.error is None for result in youtube_results
+                    )
+                    playlist_results.extend(youtube_results)
+                finally:
+                    self._record_source_metrics(
+                        "youtube",
+                        youtube_started_at,
+                        youtube_results,
+                        youtube_success,
+                    )
 
         except Exception as e:
             global_error = str(e)

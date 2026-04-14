@@ -15,6 +15,18 @@ from music_ferry.config import (
     TransferConfig,
     YouTubeConfig,
 )
+from music_ferry.library import Library
+from music_ferry.transfer import InteractiveTransfer
+
+
+def _get_sample_value(metric, sample_name: str, labels: dict[str, str]) -> float:
+    for metric_family in metric.collect():
+        for sample in metric_family.samples:
+            if sample.name != sample_name:
+                continue
+            if all(sample.labels.get(key) == value for key, value in labels.items()):
+                return float(sample.value)
+    return 0.0
 
 
 @pytest.fixture
@@ -53,7 +65,6 @@ class TestLibraryMetrics:
         update_library_metrics(mock_config)
 
     def test_update_library_metrics_with_library(self, mock_config: Config):
-        from music_ferry.library import Library
         from music_ferry.metrics.collectors import (
             library_size_bytes,
             playlists_total,
@@ -87,22 +98,191 @@ class TestLibraryMetrics:
 
 class TestSyncMetrics:
     def test_record_sync_complete(self):
-        from music_ferry.metrics.collectors import record_sync_complete, sync_total
+        from music_ferry.metrics.collectors import (
+            record_sync_complete,
+            sync_duration_seconds,
+            sync_last_duration_seconds,
+            sync_last_success_timestamp,
+            sync_total,
+        )
 
-        # Record a successful sync
-        record_sync_complete("spotify", success=True, tracks=5)
+        labels = {"source": "spotify"}
+        counter_labels = {**labels, "status": "success"}
+        before_total = _get_sample_value(
+            sync_total,
+            "music_ferry_sync_total",
+            counter_labels,
+        )
+        before_count = _get_sample_value(
+            sync_duration_seconds,
+            "music_ferry_sync_duration_seconds_count",
+            labels,
+        )
 
-        # Check counter was incremented
-        assert sync_total.labels(source="spotify", status="success")._value.get() >= 1
+        record_sync_complete("spotify", success=True, tracks=5, duration_seconds=12.5)
+
+        assert (
+            _get_sample_value(sync_total, "music_ferry_sync_total", counter_labels)
+            == before_total + 1
+        )
+        assert (
+            _get_sample_value(
+                sync_duration_seconds,
+                "music_ferry_sync_duration_seconds_count",
+                labels,
+            )
+            == before_count + 1
+        )
+        assert sync_last_duration_seconds.labels(source="spotify")._value.get() == 12.5
+        assert sync_last_success_timestamp.labels(source="spotify")._value.get() > 0
 
     def test_record_sync_failure(self):
-        from music_ferry.metrics.collectors import record_sync_complete, sync_total
+        from music_ferry.metrics.collectors import (
+            record_sync_complete,
+            sync_last_success_timestamp,
+            sync_total,
+        )
 
-        # Record a failed sync
+        before_total = _get_sample_value(
+            sync_total,
+            "music_ferry_sync_total",
+            {"source": "youtube", "status": "failure"},
+        )
+        before_success_timestamp = sync_last_success_timestamp.labels(
+            source="youtube"
+        )._value.get()
+
         record_sync_complete("youtube", success=False, tracks=0)
 
-        # Check counter was incremented
-        assert sync_total.labels(source="youtube", status="failure")._value.get() >= 1
+        assert (
+            _get_sample_value(
+                sync_total,
+                "music_ferry_sync_total",
+                {"source": "youtube", "status": "failure"},
+            )
+            == before_total + 1
+        )
+        assert (
+            sync_last_success_timestamp.labels(source="youtube")._value.get()
+            == before_success_timestamp
+        )
+
+
+class TestHeadphonesTransferMetrics:
+    def test_transfer_metrics_are_recorded(self, mock_config: Config):
+        from music_ferry.metrics.collectors import (
+            headphones_transfer_bytes_total,
+            headphones_transfer_duration_seconds,
+            headphones_transfer_files_total,
+            headphones_transfer_last_duration_seconds,
+            headphones_transfer_last_success_timestamp,
+            headphones_transfer_total,
+        )
+
+        spotify_dir = mock_config.paths.music_dir / "spotify"
+        music_dir = spotify_dir / "music"
+        music_dir.mkdir(parents=True, exist_ok=True)
+
+        mount_music_dir = (
+            mock_config.paths.headphones_mount
+            / mock_config.paths.headphones_music_folder
+        )
+        mount_music_dir.mkdir(parents=True, exist_ok=True)
+
+        track_bytes = b"fake mp3 data"
+        track_path = music_dir / "track1.mp3"
+        track_path.write_bytes(track_bytes)
+
+        library = Library(spotify_dir / "library.json")
+        library.add_track(
+            track_id="track1",
+            filename="track1.mp3",
+            title="Track 1",
+            artist="Artist 1",
+            playlist_id="playlist1",
+            size_bytes=len(track_bytes),
+        )
+        library.update_playlist("playlist1", "Playlist 1", track_count=1)
+
+        transfer = InteractiveTransfer(
+            mock_config,
+            sources=["spotify"],
+            spotify_library=library,
+            auto=True,
+        )
+
+        labels = {"source": "spotify", "operation": "sync_changes"}
+        before_total = _get_sample_value(
+            headphones_transfer_total,
+            "music_ferry_headphones_transfer_total",
+            {**labels, "status": "success"},
+        )
+        before_count = _get_sample_value(
+            headphones_transfer_duration_seconds,
+            "music_ferry_headphones_transfer_duration_seconds_count",
+            labels,
+        )
+        before_files = _get_sample_value(
+            headphones_transfer_files_total,
+            "music_ferry_headphones_transfer_files_total",
+            {**labels, "action": "copied"},
+        )
+        before_bytes = _get_sample_value(
+            headphones_transfer_bytes_total,
+            "music_ferry_headphones_transfer_bytes_total",
+            {**labels, "action": "copied"},
+        )
+
+        copied, removed = transfer.sync_changes(auto=True)
+
+        assert copied == 1
+        assert removed == 0
+        assert (
+            _get_sample_value(
+                headphones_transfer_total,
+                "music_ferry_headphones_transfer_total",
+                {**labels, "status": "success"},
+            )
+            == before_total + 1
+        )
+        assert (
+            _get_sample_value(
+                headphones_transfer_duration_seconds,
+                "music_ferry_headphones_transfer_duration_seconds_count",
+                labels,
+            )
+            == before_count + 1
+        )
+        assert (
+            _get_sample_value(
+                headphones_transfer_files_total,
+                "music_ferry_headphones_transfer_files_total",
+                {**labels, "action": "copied"},
+            )
+            == before_files + 1
+        )
+        assert (
+            _get_sample_value(
+                headphones_transfer_bytes_total,
+                "music_ferry_headphones_transfer_bytes_total",
+                {**labels, "action": "copied"},
+            )
+            == before_bytes + len(track_bytes)
+        )
+        assert (
+            headphones_transfer_last_duration_seconds.labels(
+                source="spotify",
+                operation="sync_changes",
+            )._value.get()
+            >= 0
+        )
+        assert (
+            headphones_transfer_last_success_timestamp.labels(
+                source="spotify",
+                operation="sync_changes",
+            )._value.get()
+            > 0
+        )
 
 
 class TestTimedDecorator:

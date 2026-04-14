@@ -406,6 +406,7 @@ class TestOrchestratorSync:
     @pytest.mark.asyncio
     @patch("music_ferry.orchestrator.tag_mp3")
     @patch("music_ferry.orchestrator.asyncio.sleep", new_callable=AsyncMock)
+    @patch("music_ferry.orchestrator.record_sync_complete")
     @patch("music_ferry.orchestrator.SpotifyAPI")
     @patch("music_ferry.orchestrator.SpotifyBrowser")
     @patch("music_ferry.orchestrator.AudioRecorder")
@@ -416,6 +417,7 @@ class TestOrchestratorSync:
         mock_recorder_class,
         mock_browser_class,
         mock_api_class,
+        mock_record_sync_complete,
         mock_sleep,
         mock_tag_mp3,
         sample_config: Config,
@@ -460,3 +462,7 @@ class TestOrchestratorSync:
         assert result.total_tracks == 1
         mock_api.get_playlist_tracks.assert_called_once()
         mock_notifier.send.assert_called_once()
+        mock_record_sync_complete.assert_called_once()
+        assert mock_record_sync_complete.call_args.kwargs["source"] == "spotify"
+        assert mock_record_sync_complete.call_args.kwargs["success"] is True
+        assert mock_record_sync_complete.call_args.kwargs["tracks"] == 1

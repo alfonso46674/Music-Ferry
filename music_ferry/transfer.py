@@ -3,11 +3,13 @@ import logging
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from music_ferry.config import Config
 from music_ferry.library import Library, LibraryTrack
+from music_ferry.metrics.collectors import record_headphones_transfer
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,14 @@ class TransferPlan:
     bytes_to_copy: int
     bytes_to_remove: int
     budget_bytes: int
+
+
+@dataclass
+class TransferExecutionResult:
+    files_copied: int
+    files_removed: int
+    bytes_copied: int
+    bytes_removed: int
 
 
 @dataclass
@@ -177,6 +187,14 @@ class InteractiveTransfer:
     def _get_local_filenames(self) -> set[str]:
         """Get set of MP3 filenames from selected source libraries."""
         return set(self._get_local_files().keys())
+
+    def _metrics_source_label(self) -> str:
+        sources = sorted(set(self.sources))
+        if sources == ["spotify", "youtube"]:
+            return "all"
+        if len(sources) == 1:
+            return sources[0]
+        return "mixed"
 
     def _bytes_from_gb(self, value: float | None) -> int | None:
         if value is None:
@@ -639,8 +657,9 @@ class InteractiveTransfer:
             budget_bytes=budget_bytes,
         )
 
-    def _execute_plan(self, plan: TransferPlan) -> tuple[int, int]:
+    def _execute_plan(self, plan: TransferPlan) -> TransferExecutionResult:
         files_copied = 0
+        bytes_copied = 0
         total_to_copy = len(plan.files_to_copy)
         for i, track in enumerate(plan.files_to_copy, 1):
             dst = self.headphones_path / track.filename
@@ -654,11 +673,14 @@ class InteractiveTransfer:
                 )
                 shutil.copy2(track.src_path, dst)
                 files_copied += 1
+                bytes_copied += track.size_bytes
 
         files_removed = 0
+        bytes_removed = 0
         total_to_remove = len(plan.files_to_remove)
         for i, orphan_path in enumerate(plan.files_to_remove, 1):
             if orphan_path.exists():
+                file_size = orphan_path.stat().st_size
                 logger.info(
                     "Removing (%d/%d): %s",
                     i,
@@ -667,15 +689,62 @@ class InteractiveTransfer:
                 )
                 orphan_path.unlink()
                 files_removed += 1
+                bytes_removed += file_size
 
         logger.info(
             "Sync complete: %d copied (%s), %d removed (%s)",
             files_copied,
-            self._format_bytes(plan.bytes_to_copy),
+            self._format_bytes(bytes_copied),
             files_removed,
-            self._format_bytes(plan.bytes_to_remove),
+            self._format_bytes(bytes_removed),
         )
-        return files_copied, files_removed
+        return TransferExecutionResult(
+            files_copied=files_copied,
+            files_removed=files_removed,
+            bytes_copied=bytes_copied,
+            bytes_removed=bytes_removed,
+        )
+
+    def _run_operation_with_metrics(
+        self,
+        *,
+        full_reset: bool,
+        auto: bool,
+        operation: str,
+    ) -> TransferExecutionResult:
+        start_time = time.perf_counter()
+        status = "failure"
+        execution_result = TransferExecutionResult(
+            files_copied=0,
+            files_removed=0,
+            bytes_copied=0,
+            bytes_removed=0,
+        )
+
+        try:
+            plan = self._plan_transfer(full_reset=full_reset, auto=auto)
+            if plan.budget_bytes <= 0 and plan.bytes_to_copy > 0:
+                logger.warning(
+                    "%s skipped: reserve free space exceeded",
+                    "Full reset" if full_reset else "Transfer",
+                )
+                status = "skipped"
+                return execution_result
+
+            execution_result = self._execute_plan(plan)
+            status = "success"
+            return execution_result
+        finally:
+            record_headphones_transfer(
+                source=self._metrics_source_label(),
+                operation=operation,
+                status=status,
+                files_copied=execution_result.files_copied,
+                files_removed=execution_result.files_removed,
+                bytes_copied=execution_result.bytes_copied,
+                bytes_removed=execution_result.bytes_removed,
+                duration_seconds=time.perf_counter() - start_time,
+            )
 
     def sync_changes(self, auto: bool | None = None) -> tuple[int, int]:
         """Sync changes to headphones: copy new files, remove orphans.
@@ -683,11 +752,12 @@ class InteractiveTransfer:
         Returns tuple of (files_copied, files_removed).
         """
         use_auto = self.auto if auto is None else auto
-        plan = self._plan_transfer(full_reset=False, auto=use_auto)
-        if plan.budget_bytes <= 0 and plan.bytes_to_copy > 0:
-            logger.warning("Transfer skipped: reserve free space exceeded")
-            return 0, 0
-        return self._execute_plan(plan)
+        result = self._run_operation_with_metrics(
+            full_reset=False,
+            auto=use_auto,
+            operation="sync_changes",
+        )
+        return result.files_copied, result.files_removed
 
     def full_reset(self, auto: bool | None = None) -> int:
         """Delete all files on headphones and copy all tracks from selected sources.
@@ -695,12 +765,12 @@ class InteractiveTransfer:
         Returns count of files copied.
         """
         use_auto = self.auto if auto is None else auto
-        plan = self._plan_transfer(full_reset=True, auto=use_auto)
-        if plan.budget_bytes <= 0 and plan.bytes_to_copy > 0:
-            logger.warning("Full reset skipped: reserve free space exceeded")
-            return 0
-        files_copied, _ = self._execute_plan(plan)
-        return files_copied
+        result = self._run_operation_with_metrics(
+            full_reset=True,
+            auto=use_auto,
+            operation="full_reset",
+        )
+        return result.files_copied
 
     def run(self) -> int:
         """Run the interactive transfer menu. Returns exit code."""
