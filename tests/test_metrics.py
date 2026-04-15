@@ -261,14 +261,11 @@ class TestHeadphonesTransferMetrics:
             )
             == before_files + 1
         )
-        assert (
-            _get_sample_value(
-                headphones_transfer_bytes_total,
-                "music_ferry_headphones_transfer_bytes_total",
-                {**labels, "action": "copied"},
-            )
-            == before_bytes + len(track_bytes)
-        )
+        assert _get_sample_value(
+            headphones_transfer_bytes_total,
+            "music_ferry_headphones_transfer_bytes_total",
+            {**labels, "action": "copied"},
+        ) == before_bytes + len(track_bytes)
         assert (
             headphones_transfer_last_duration_seconds.labels(
                 source="spotify",

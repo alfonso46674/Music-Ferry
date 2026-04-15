@@ -90,6 +90,7 @@ spotify:
       max_gb: 1.5
     - name: "Workout Mix"
       url: "https://open.spotify.com/playlist/YOUR_PLAYLIST_ID"
+      disabled: true  # optional: keep configured, skip during sync
 
 youtube:
   enabled: false
@@ -100,6 +101,7 @@ youtube:
     - name: "Coding Music"
       url: "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID"
       max_gb: 2.0
+      disabled: true  # optional: keep configured, skip during sync
 
 audio:
   bitrate: 192  # kbps
@@ -161,6 +163,10 @@ YouTube playlists are downloaded directly using yt-dlp - no browser automation r
 - `--spotify` - sync/transfer only Spotify tracks
 - `--youtube` - sync/transfer only YouTube tracks
 - No flag - sync/transfer both sources (default)
+
+**Playlist option:**
+
+- `disabled: true` on a playlist skips syncing that playlist without removing existing downloads or library entries.
 
 **Directory structure:**
 

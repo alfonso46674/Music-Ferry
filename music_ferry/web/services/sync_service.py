@@ -428,6 +428,7 @@ class SyncService:
             "error": job.error,
         }
 
+
 def get_sync_service(app: FastAPI) -> SyncService:
     """Get or create the SyncService for an app."""
     existing = getattr(app.state, "sync_service", None)

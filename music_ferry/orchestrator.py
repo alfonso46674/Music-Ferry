@@ -60,6 +60,10 @@ class Orchestrator:
         return [t for t in tracks if not library.is_downloaded(t.id)]
 
     @staticmethod
+    def _active_playlists(playlists: list[PlaylistConfig]) -> list[PlaylistConfig]:
+        return [playlist for playlist in playlists if not playlist.disabled]
+
+    @staticmethod
     def _select_playback_mode(new_count: int, total_count: int) -> str:
         """Select playback mode based on ratio of new tracks.
 
@@ -138,10 +142,10 @@ class Orchestrator:
                 library.remove_track_from_playlist(lib_track.id, playlist_id)
 
     def _fetch_all_playlists(self, api: SpotifyAPI) -> dict[str, list[Track]]:
-        """Fetch all tracks for all playlists. Returns dict mapping playlist_id -> tracks."""
+        """Fetch all tracks for active playlists. Returns playlist_id -> tracks."""
         all_playlist_tracks: dict[str, list[Track]] = {}
 
-        for playlist in self.config.spotify.playlists:
+        for playlist in self._active_playlists(self.config.spotify.playlists):
             try:
                 tracks = api.get_playlist_tracks(playlist.playlist_id)
                 all_playlist_tracks[playlist.playlist_id] = tracks
@@ -221,9 +225,10 @@ class Orchestrator:
     async def _sync_spotify(self) -> list[PlaylistResult]:
         """Sync Spotify playlists using browser recording."""
         playlist_results: list[PlaylistResult] = []
+        active_playlists = self._active_playlists(self.config.spotify.playlists)
 
-        if not self.config.spotify.playlists:
-            logger.info("No Spotify playlists configured")
+        if not active_playlists:
+            logger.info("No active Spotify playlists configured")
             return playlist_results
 
         api = SpotifyAPI(
@@ -237,7 +242,7 @@ class Orchestrator:
 
         # Determine which playlists have new tracks
         playlists_with_new_tracks: dict[str, list[Track]] = {}
-        for playlist in self.config.spotify.playlists:
+        for playlist in active_playlists:
             all_tracks = all_playlist_tracks.get(playlist.playlist_id, [])
             new_tracks = self._filter_new_tracks(all_tracks, self.spotify_library)
             if new_tracks:
@@ -270,7 +275,7 @@ class Orchestrator:
                         if not await browser.is_logged_in():
                             raise RuntimeError("Login expired - please re-authenticate")
 
-                        for playlist in self.config.spotify.playlists:
+                        for playlist in active_playlists:
                             new_tracks = playlists_with_new_tracks.get(
                                 playlist.playlist_id, []
                             )
@@ -288,7 +293,7 @@ class Orchestrator:
                             playlist_results.append(result)
 
             except RuntimeError as e:
-                for playlist in self.config.spotify.playlists:
+                for playlist in active_playlists:
                     if not any(r.name == playlist.name for r in playlist_results):
                         playlist_results.append(
                             PlaylistResult(
@@ -297,14 +302,14 @@ class Orchestrator:
                         )
         else:
             logger.info("All Spotify playlists are fully synced. No downloads needed.")
-            for playlist in self.config.spotify.playlists:
+            for playlist in active_playlists:
                 playlist_results.append(
                     PlaylistResult(name=playlist.name, tracks_synced=0, error=None)
                 )
 
-        # Update playlist membership for all playlists
+        # Update playlist membership for active playlists only.
         logger.info("Updating Spotify playlist membership...")
-        for playlist in self.config.spotify.playlists:
+        for playlist in active_playlists:
             all_tracks = all_playlist_tracks.get(playlist.playlist_id, [])
             self._update_playlist_membership(
                 playlist.playlist_id, playlist.name, all_tracks, self.spotify_library
@@ -322,9 +327,10 @@ class Orchestrator:
     async def _sync_youtube(self) -> list[PlaylistResult]:
         """Sync YouTube playlists using yt-dlp."""
         playlist_results: list[PlaylistResult] = []
+        active_playlists = self._active_playlists(self.config.youtube.playlists)
 
-        if not self.config.youtube.playlists:
-            logger.info("No YouTube playlists configured")
+        if not active_playlists:
+            logger.info("No active YouTube playlists configured")
             return playlist_results
 
         downloader = YouTubeDownloader(
@@ -336,7 +342,7 @@ class Orchestrator:
             cookies_file=getattr(self.config.youtube, "cookies_file", None),
         )
 
-        for playlist in self.config.youtube.playlists:
+        for playlist in active_playlists:
             try:
                 logger.info(f"Fetching YouTube playlist: {playlist.name}")
                 all_tracks = downloader.get_playlist_tracks(playlist.url, playlist.name)

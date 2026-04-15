@@ -217,6 +217,35 @@ class TestOrchestrator:
         assert track2.is_orphaned
 
     @pytest.mark.asyncio
+    @patch("music_ferry.orchestrator.SpotifyAPI")
+    async def test_sync_spotify_skips_disabled_playlists(
+        self,
+        mock_api_class,
+        sample_config: Config,
+    ):
+        sample_config.spotify.playlists = [
+            PlaylistConfig(
+                name="Disabled Spotify",
+                url="https://open.spotify.com/playlist/disabled123",
+                disabled=True,
+            )
+        ]
+        orchestrator = Orchestrator(sample_config)
+        orchestrator.spotify_library.add_track(
+            "old1",
+            "old1.mp3",
+            "Old Song",
+            "Artist",
+            sample_config.spotify.playlists[0].playlist_id,
+        )
+
+        result = await orchestrator._sync_spotify()
+
+        assert result == []
+        mock_api_class.assert_not_called()
+        assert orchestrator.spotify_library.is_downloaded("old1")
+
+    @pytest.mark.asyncio
     @patch("music_ferry.orchestrator.YouTubeDownloader")
     async def test_sync_youtube_stores_real_downloaded_filename(
         self,
@@ -242,7 +271,9 @@ class TestOrchestrator:
             album_art_url=None,
             source="youtube",
         )
-        output_path = orchestrator.youtube_music_dir / "Channel Name - Song With Unsafe.mp3"
+        output_path = (
+            orchestrator.youtube_music_dir / "Channel Name - Song With Unsafe.mp3"
+        )
 
         mock_downloader = MagicMock()
         mock_downloader.get_playlist_tracks.return_value = [track]
@@ -260,6 +291,38 @@ class TestOrchestrator:
         assert library_track is not None
         assert library_track.filename == "Channel Name - Song With Unsafe.mp3"
         assert library_track.size_bytes == 8
+
+    @pytest.mark.asyncio
+    @patch("music_ferry.orchestrator.YouTubeDownloader")
+    async def test_sync_youtube_skips_disabled_playlists(
+        self,
+        mock_downloader_class,
+        sample_config: Config,
+    ):
+        sample_config.youtube = YouTubeConfig(
+            enabled=True,
+            playlists=[
+                PlaylistConfig(
+                    name="Disabled YouTube",
+                    url="https://www.youtube.com/playlist?list=PLdisabled",
+                    disabled=True,
+                )
+            ],
+        )
+        orchestrator = Orchestrator(sample_config)
+        orchestrator.youtube_library.add_track(
+            "old1",
+            "old1.mp3",
+            "Old Song",
+            "Artist",
+            sample_config.youtube.playlists[0].playlist_id,
+        )
+
+        result = await orchestrator._sync_youtube()
+
+        assert result == []
+        mock_downloader_class.assert_not_called()
+        assert orchestrator.youtube_library.is_downloaded("old1")
 
 
 class TestPlaybackModeSelection:

@@ -13,6 +13,7 @@ class PlaylistConfig:
     name: str
     url: str
     max_gb: float | None = None
+    disabled: bool = False
 
     @property
     def playlist_id(self) -> str:
@@ -115,6 +116,14 @@ def _validate_filename_max_chars(value: object) -> int:
     return value
 
 
+def _parse_playlist_disabled(playlist_data: dict[str, object]) -> bool:
+    disabled = playlist_data.get("disabled", False)
+    if not isinstance(disabled, bool):
+        name = str(playlist_data.get("name", "Unknown"))
+        raise ValueError(f"playlist.disabled must be a boolean for '{name}'")
+    return disabled
+
+
 def load_config(config_path: Path) -> Config:
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
@@ -143,6 +152,7 @@ def load_config(config_path: Path) -> Config:
             name=p["name"],
             url=p["url"],
             max_gb=p.get("max_gb"),
+            disabled=_parse_playlist_disabled(p),
         )
         for p in spotify_playlists_data
     ]
@@ -163,6 +173,7 @@ def load_config(config_path: Path) -> Config:
             name=p["name"],
             url=p["url"],
             max_gb=p.get("max_gb"),
+            disabled=_parse_playlist_disabled(p),
         )
         for p in youtube_data.get("playlists", [])
     ]

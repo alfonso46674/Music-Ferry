@@ -51,6 +51,7 @@ class TestConfig:
         assert config.spotify.username == "test_user"
         assert len(config.spotify.playlists) == 1
         assert config.spotify.playlists[0].name == "Test Playlist"
+        assert config.spotify.playlists[0].disabled is False
         assert config.audio.bitrate == 192
         assert config.audio.filename_max_chars == 100
         assert config.paths.music_dir == Path.home() / ".music-ferry" / "music"
@@ -209,7 +210,8 @@ class TestConfig:
         )
 
         with pytest.raises(
-            ValueError, match="Invalid Spotify playlist URL for 'Broken Spotify Playlist'"
+            ValueError,
+            match="Invalid Spotify playlist URL for 'Broken Spotify Playlist'",
         ):
             load_config(config_file)
 
@@ -241,7 +243,12 @@ class TestYouTubeConfig:
                             {
                                 "name": "YT Playlist",
                                 "url": "https://www.youtube.com/playlist?list=PLxxx",
-                            }
+                            },
+                            {
+                                "name": "Disabled YT Playlist",
+                                "url": "https://www.youtube.com/playlist?list=PLdisabled",
+                                "disabled": True,
+                            },
                         ],
                     },
                     "audio": {"bitrate": 192, "format": "mp3"},
@@ -270,8 +277,11 @@ class TestYouTubeConfig:
         assert len(config.spotify.playlists) == 1
         assert config.spotify.playlists[0].name == "Test Playlist"
         assert config.youtube.enabled is True
-        assert len(config.youtube.playlists) == 1
+        assert len(config.youtube.playlists) == 2
         assert config.youtube.playlists[0].name == "YT Playlist"
+        assert config.youtube.playlists[0].disabled is False
+        assert config.youtube.playlists[1].name == "Disabled YT Playlist"
+        assert config.youtube.playlists[1].disabled is True
         assert config.youtube.retry_count == 2
         assert config.youtube.retry_delay_seconds == 7.5
         assert (
@@ -475,6 +485,7 @@ class TestYouTubePlaylistConfig:
         )
 
         with pytest.raises(
-            ValueError, match="Invalid YouTube playlist URL for 'Broken YouTube Playlist'"
+            ValueError,
+            match="Invalid YouTube playlist URL for 'Broken YouTube Playlist'",
         ):
             load_config(config_file)
